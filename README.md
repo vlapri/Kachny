@@ -1,3 +1,4 @@
+
 # Kachny (Dugs)
 
 ![CZ](https://img.shields.io/badge/lang-cs-green.svg)
@@ -16,3 +17,11 @@ MS Windows, Powershell
 Linux
 
 ![PowerShell](https://github.com/vlapri/Kachny/blob/main/linux_kachna_video.gif)
+
+
+## Jak použít? (How to use?)
+
+PowerShell
+
+1. Stáhněte soubor [linux_kachna.sh](./linux_kachna.sh?raw=true)
+
