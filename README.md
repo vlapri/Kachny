@@ -9,12 +9,12 @@ This project was created just for my and my colleagues' amusement at work. It ex
 
 ## Co to dělá? (What is it doing?)
 
-MS Windows, Powershell
+### MS Windows, Powershell
 
 ![PowerShell](https://github.com/vlapri/Kachny/blob/main/powershell_kachna_video.gif)
 
 
-Linux
+### Linux
 
 ![PowerShell](https://github.com/vlapri/Kachny/blob/main/linux_kachna_video.gif)
 
@@ -23,14 +23,14 @@ Linux
 
 ### PowerShell
 
-1. Stáhněte soubor (Download file) [linux_kachna.sh](./powershell_kachna.sh?raw=true)
+1. Stáhněte soubor (Download file) [powershell_kachna.sh](./powershell_kachna.sh?raw=true)
 2. Spusťe v Powershellu. (Run in PowerShell.)
 3. Kliknutím pravým tlačítkem myši na kachnu, ukončete program. (Right-click on the duck to exit the program.)
 
 
 ### Linux
 
-1. Stáhněte soubor [linux_kachna.sh](./linux_kachna.sh?raw=true)
+1. Stáhněte soubor (Download file) [linux_kachna.sh](./linux_kachna.sh?raw=true)
 2. Spusťte v terminálu. (Run in terminal.)
 ```bash
 chmod +x linux_kachna.sh
