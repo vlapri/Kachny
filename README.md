@@ -21,7 +21,21 @@ Linux
 
 ## Jak použít? (How to use?)
 
-PowerShell
+### PowerShell
+
+1. Stáhněte soubor (Download file) [linux_kachna.sh](./powershell_kachna.sh?raw=true)
+2. Spusťe v Powershellu. (Run in PowerShell.)
+3. Kliknutím pravým tlačítkem myši na kachnu, ukončete program. (Right-click on the duck to exit the program.)
+
+
+### Linux
 
 1. Stáhněte soubor [linux_kachna.sh](./linux_kachna.sh?raw=true)
+2. Spusťte v terminálu. (Run in terminal.)
+```bash
+chmod +x linux_kachna.sh
+./linux_kachna.sh
+```
+3. Pište slovo "konec" pro ukončení. (Type the word "konec" to end.)
 
+   
