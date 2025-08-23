@@ -43,4 +43,4 @@ chmod +x linux_kachna.sh
    
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/vlapri)
 
-[!["Buy Me A Coffee"](https://github.com/vlapri/Kachny/blob/main/coffee_qr.png | width=200)](https://www.buymeacoffee.com/vlapri)
+[!<img src="https://github.com/vlapri/Kachny/blob/main/coffee_qr.png" width="200">](https://www.buymeacoffee.com/vlapri)
