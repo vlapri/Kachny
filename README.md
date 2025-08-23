@@ -38,4 +38,9 @@ chmod +x linux_kachna.sh
 ```
 3. Pište slovo "konec" pro ukončení. (Type the word "konec" to end.)
 
+
+## Buy Me A Coffee
    
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/vlapri)
+
+[!["Buy Me A Coffee"](./coffee_qr)](https://www.buymeacoffee.com/vlapri)
