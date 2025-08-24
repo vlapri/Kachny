@@ -30,8 +30,8 @@ This project was created just for my and my colleagues' amusement at work. It ex
 
 ### Linux
 
-1. Stáhněte soubor (Download file) [linux_kachna_v2_launch.sh](./https://github.com/vlapri/Kachny/blob/main/linux_kachna_v2_launch.sh?raw=true)
-2. Stáhněte soubor (Download file) [linux_kachna_v2_func.sh](./https://github.com/vlapri/Kachny/blob/main/linux_kachna_v2_func.sh?raw=true)
+1. Stáhněte soubor (Download file) [linux_kachna_v2_launch.sh](./linux_kachna_v2_launch.sh?raw=true)
+2. Stáhněte soubor (Download file) [linux_kachna_v2_func.sh](./linux_kachna_v2_func.sh?raw=true)
 3. Spusťte v terminálu. (Run in terminal.)
 ```bash
 chmod +x linux_kachna_v2_launch.sh
