@@ -1,5 +1,5 @@
 
-# Kachny (Dugs)
+# Kachny (Ducks)
 
 ![CZ](https://img.shields.io/badge/lang-cs-green.svg)
 Tento projekt vznikl jen pro pobavení mé a mých kolegů v práci. Existuje ve verzi pro MS Windows Powershell a ve verzi pro Linux (testováno na Ubuntu).
