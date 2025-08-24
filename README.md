@@ -30,11 +30,12 @@ This project was created just for my and my colleagues' amusement at work. It ex
 
 ### Linux
 
-1. Stáhněte soubor (Download file) [linux_kachna.sh](./linux_kachna.sh?raw=true)
-2. Spusťte v terminálu. (Run in terminal.)
+1. Stáhněte soubor (Download file) [linux_kachna.sh](./https://github.com/vlapri/Kachny/blob/main/linux_kachna_v2_launch.sh?raw=true)
+2. Stáhněte soubor (Download file) [linux_kachna.sh](./https://github.com/vlapri/Kachny/blob/main/linux_kachna_v2_func.sh?raw=true)
+3. Spusťte v terminálu. (Run in terminal.)
 ```bash
-chmod +x linux_kachna.sh
-./linux_kachna.sh
+chmod +x linux_kachna_v2_launch.sh
+./linux_kachna_v2_launch.sh
 ```
 3. Pište slovo "konec" pro ukončení a stiskněte klávesu [ENTER]. (Type the word "konec" to end and press [ENTER])
 
