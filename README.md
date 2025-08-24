@@ -36,7 +36,7 @@ This project was created just for my and my colleagues' amusement at work. It ex
 chmod +x linux_kachna.sh
 ./linux_kachna.sh
 ```
-3. Pište slovo "konec" pro ukončení. (Type the word "konec" to end.)
+3. Pište slovo "konec" pro ukončení a stiskněte klávesu [ENTER]. (Type the word "konec" to end and press [ENTER])
 
 
 ## Buy Me A Coffee
