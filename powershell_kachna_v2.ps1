@@ -58,7 +58,7 @@ $config = @{
     Speeds               = [ordered]@{ 'Pomalá' = 8; 'Normální' = 15; 'Rychlá' = 35 }  # rychlost chůze v DIP za sekundu
     DefaultSpeed         = 'Normální' # odpovídá rychlosti v1 (5 px každých 350 ms = 14,3 px/s)
     LegsBaseSpeed        = 15         # při této rychlosti nohy kmitají jednou za sekundu (jako ve v1)
-    PhraseIntervalSec    = 4          # jak často kachna mluví při chůzi
+    PhraseIntervalSec    = 6          # jak často kachna mluví při chůzi
     ComplaintIntervalSec = 60         # jak často si kachna stěžuje v pauze
     Gravity              = 3000       # zrychlení pádu po puštění (DIP/s²)
     RiseSpeed            = 800        # rychlost vynoření, když kachnu pustíš pod spodní okraj (DIP/s)
@@ -102,6 +102,11 @@ $duckPhrases = @(
     "${Env:UserName}, jsem tvůj otec.",
     "${Env:UserName}, jsem tvůj otec.",
     "${Env:UserName}, jsem tvůj otec.",
+    "Nechť tě provází Síla... a střídka chleba.",
+    "Toto nejsou kachny, které hledáte.",
+    "Mám vyšší břeh, ${Env:UserName}!",
+    "Kvákej, nebo nekvákej. Žádné 'zkusím to' neexistuje.",
+    "Jednou ti povím o Temné straně rybníka...",
     "Houstone, máme problém...",
     "Jsem král světa! A tohle je můj rybník!",
     "Nejsi ty... tak trochu kachna?",
@@ -111,6 +116,31 @@ $duckPhrases = @(
     "Na zdraví! A na další potopené rohlíky!",
     "Toto je jen začátek... mého panování nad rybníkem!",
     "Jeden prsten vládne všem... a já chci ten s největší houskou."
+    "Hasta la vista, káčátko.",
+    "Já se vrátím... pro ten druhý rohlík.",
+    "Ve vesmíru tě nikdo neslyší kvákat.",
+    "Vezmeš si červeného červíka, nebo modrého?",
+    "Žádná lžička neexistuje. Jen zobák.",
+    "Odvážně se vydat tam, kam se ještě žádná kachna nevydala!",
+    "Neprojdeš dál! Tento rybník je můj!",
+    "Můj milášek... můj křupavý rohlíček!",
+    "Zima přichází... a s ní zamrzne rybník.",
+    "Nevíš nic, ${Env:UserName}!",
+    "Jsi kachna, ${Env:UserName}.",
+    "Expecto Rohlíku!",
+    "První pravidlo Kachního klubu je: nemluvit o Kachním klubu.",
+    "Jméno je Pond. Duck Pond.",
+    "Protřepat, nemíchat. A rohlík nadrobit.",
+    "Dám mu nabídku, kterou nemůže odmítnout... plnou misku zrní.",
+    "Život je jako krabice rohlíků... nikdy nevíš, který bude tvrdý.",
+    "S velkým kvákáním přichází velká odpovědnost.",
+    "Před 3 miliony let kachny vládly vesmíru.",
+    "Bazinga! Teda... Kvák!",
+    "Ševron 7 uzamčen! Cílová planeta: Rybník.",
+    "Pozor na kawoosh! Zmokne vám peří!",
+    "Kam vede tato cesta? Doufám, že přímo do pekárny.",
+    "Zatáhněte Iris! Ten rohlík letí moc rychle!",
+    "Jaffa, Kree! ...Teda, Kachna, Kree!"
 )
 
 # Stížnosti v pauze (hned po zapauzování a pak každou minutu)
@@ -154,7 +184,13 @@ $restPhrases = @(
     "Chvilku si odpočinu...",
     "Ty jo, to je ale výhled!",
     "Kam jsem to vlastně šla?",
-    "Malá pauza na čištění peří."
+    "Malá pauza na čištění peří.",
+    "GPS přehodnocuje trasu...",
+    "Zapomněla jsem, pro co jsem to vlastně šla.",
+    "Kdo jsem? Kam kráčím? Proč vlastně kačím?",
+    "Sakra, nechala jsem doma zapnutou plotýnku?",
+    "Taktická bezpečnostní přestávka.",
+    "Předstírám, že jsem socha."
 )
 
 # ---------------------------------------------------------------------------
