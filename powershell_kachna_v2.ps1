@@ -8,8 +8,9 @@
     Ovládání:
       - klepnutí levým tlačítkem ...... pauza / pokračování (v pauze si kachna každou minutu postěžuje)
       - přetažení levým tlačítkem ..... přesun kachny kamkoli, i na jiný monitor; po puštění spadne dolů
-      - pravé tlačítko ................ menu (pauza, rychlost, náhodné chování, ukončit)
-      - ikona v oznamovací oblasti .... stejné menu + "Přivolat kachnu k myši" (také dvojklikem na ikonu)
+      - pravé tlačítko ................ menu (pauza, skrýt kachnu, rychlost chůze, rychlost hlášek, náhodné chování, ukončit)
+      - ikona v oznamovací oblasti .... stejné menu + "Přivolat kachnu k myši" (také dvojklikem na ikonu);
+                                        tady se skrytá kachna zase zobrazí (skrytá stojí, mlčí a nic nedělá)
 
     Novinky oproti v1:
       - více monitorů s různým rozlišením i škálováním (1080p, 1200p, 2K, 4K ...),
@@ -58,8 +59,9 @@ $config = @{
     Speeds               = [ordered]@{ 'Pomalá' = 8; 'Normální' = 15; 'Rychlá' = 35 }  # rychlost chůze v DIP za sekundu
     DefaultSpeed         = 'Normální' # odpovídá rychlosti v1 (5 px každých 350 ms = 14,3 px/s)
     LegsBaseSpeed        = 15         # při této rychlosti nohy kmitají jednou za sekundu (jako ve v1)
-    PhraseIntervalSec    = 6          # jak často kachna mluví při chůzi
-    ComplaintIntervalSec = 60         # jak často si kachna stěžuje v pauze
+    PhraseSpeeds         = [ordered]@{ 'Pomalá' = 15; 'Normální' = 8; 'Rychlá' = 4 }  # po kolika sekundách kachna při chůzi mluví
+    DefaultPhraseSpeed   = 'Normální'
+    ComplaintIntervalSec = 60         # jak často si kachna stěžuje v pauze (nezávisí na rychlosti hlášek)
     Gravity              = 3000       # zrychlení pádu po puštění (DIP/s²)
     RiseSpeed            = 800        # rychlost vynoření, když kachnu pustíš pod spodní okraj (DIP/s)
     ClickTolerance       = 4          # největší posun (DIP), který se ještě bere jako klepnutí
@@ -193,6 +195,15 @@ $restPhrases = @(
     "Předstírám, že jsem socha."
 )
 
+# Po zobrazení skryté kachny
+$showPhrases = @(
+    "Kuk! Už jsem zpátky!",
+    "Chyběla jsem ti?",
+    "Tak kde jsem to skončila?",
+    "Konec schovávané!",
+    "Byla jsem si jen zaplavat."
+)
+
 # ---------------------------------------------------------------------------
 # Vzhled okna (XAML)
 # ---------------------------------------------------------------------------
@@ -251,7 +262,7 @@ $restPhrases = @(
                     <ScaleTransform ScaleX="-1"/>
                 </Canvas.RenderTransform>
                 <Canvas Name="Layer_1" Width="640" Height="480" Canvas.Left="-54" Canvas.Top="-25">
-                    <!-- nohy (path2, path4) animuje skript, aby šly zastavit v pauze -->
+                    <!-- nohy (path2, path4) i barvu těla (path6) animuje skript, aby šly zastavit (pauza, skrytí) -->
                     <Path Name="path2" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
                         <Path.Data>
                             <PathGeometry Figures="m 236.71 379.105 c 0 0 15.237 39.537 12.767 58.895 -12.767 -1.854 -32.535 -6.796 -32.535 -6.796 0 0 -9.678 -1.44 -11.738 0.824 -2.06 2.264 -22.239 2.678 -23.475 4.942 -1.235 2.265 -2.266 5.765 -2.06 8.442 0.207 2.677 -8.648 9.265 -7.619 10.913 1.029 1.648 0 2.06 9.678 2.678 9.678 0.617 80.929 1.441 84.84 0 3.912 -1.442 2.677 -12.149 2.471 -14.827 -0.207 -2.677 -18.122 -62.394 -21.623 -65.071 -3.501 -2.677 -4.943 -4.53 -6.59 -4.324 -1.647 0.206 -4.116 4.324 -4.116 4.324 z" FillRule="NonZero"/>
@@ -266,17 +277,6 @@ $restPhrases = @(
                         <Path.Data>
                             <PathGeometry Figures="m 547 213 c -5 195.449 -202 195.449 -315.54 195.449 -70.991 0 -128.54 -57.55 -128.54 -128.54 0 -70.991 57.549 -128.54 128.54 -128.54 C 302.451 151.369 381 262 547 213 Z" FillRule="NonZero"/>
                         </Path.Data>
-                        <Path.Triggers>
-                            <EventTrigger RoutedEvent="Window.Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <ColorAnimation Storyboard.TargetName="path6"
-                                            Storyboard.TargetProperty="(Rectangle.Fill).Color" To="#FFFBE03B"
-                                            Duration="00:00:03" AutoReverse="True" RepeatBehavior="Forever"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Path.Triggers>
                     </Path>
                     <Ellipse Canvas.Left="124.3" Canvas.Top="31.5" Width="165" Height="165" Name="circle8" Fill="#FFFBB03B" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
                     <Path Name="path10" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
@@ -414,9 +414,12 @@ function Show-Speech {
 }
 
 function Restart-SpeechTimer {
-    # Nová hláška má zůstat vidět celý interval.
+    # Nová hláška má zůstat vidět celý interval: v pauze minutu (stížnosti), jinak podle rychlosti hlášek.
+    # Skrytá kachna mlčí, časovač se spustí až po zobrazení.
     $speechTimer.Stop()
-    $speechTimer.Start()
+    $seconds = if ($state.Paused) { $config.ComplaintIntervalSec } else { $config.PhraseSpeeds[$state.PhraseSpeedName] }
+    $speechTimer.Interval = [TimeSpan]::FromSeconds($seconds)
+    if (-not $state.Hidden) { $speechTimer.Start() }
 }
 
 function Set-Direction {
@@ -428,7 +431,8 @@ function Set-Direction {
 
 function Update-LegAnimation {
     # Nohy stojí v pauze a při odpočinku, při pádu a přenášení kmitají rychle, jinak podle rychlosti chůze.
-    if (-not $state.LegsReady) { return }
+    # Ve skrytu jsou animace úplně zastavené (Set-Hidden), tady se na ně nesahá.
+    if (-not $state.LegsReady -or $state.Hidden) { return }
     if ($state.Dragging -or $state.Falling) {
         $legs.Resume($window)
         $legs.SetSpeedRatio($window, 4.0)
@@ -445,15 +449,12 @@ function Set-Paused {
     param([bool]$Paused)
     $state.Paused = $Paused
     $state.Resting = $false
-    $speechTimer.Stop()
     if ($Paused) {
         Show-Speech (Get-RandomPhrase $complaintPhrases $state.LastPhrase)
-        $speechTimer.Interval = [TimeSpan]::FromSeconds($config.ComplaintIntervalSec)
     } else {
         Show-Speech (Get-RandomPhrase $resumePhrases $state.LastPhrase)
-        $speechTimer.Interval = [TimeSpan]::FromSeconds($config.PhraseIntervalSec)
     }
-    $speechTimer.Start()
+    Restart-SpeechTimer
     Update-LegAnimation
 }
 
@@ -464,6 +465,14 @@ function Set-Speed {
     if ($config.Speeds.Contains($Name)) {
         $state.SpeedName = $Name
         Update-LegAnimation
+    }
+}
+
+function Set-PhraseSpeed {
+    param([string]$Name)
+    if ($config.PhraseSpeeds.Contains($Name)) {
+        $state.PhraseSpeedName = $Name
+        if (-not $state.Paused) { Restart-SpeechTimer }   # v pauze si kachna dál stěžuje jednou za minutu
     }
 }
 
@@ -489,10 +498,11 @@ function Start-Fall {
 }
 
 function Invoke-Summon {
-    # Přivolá kachnu na monitor s kurzorem myši: objeví se nahoře nad kurzorem a spadne dolů.
+    # Přivolá kachnu na monitor s kurzorem myši: objeví se nahoře nad kurzorem a spadne dolů (i když byla skrytá).
     $area = Get-CursorArea
     $cursor = Get-CursorDip
     Start-Fall -Area $area -X ($cursor.X - $window.Width / 2) -Y $area.Top
+    Set-Hidden $false
 }
 
 function Complete-Drag {
@@ -588,6 +598,45 @@ function Invoke-SpeechTick {
     }
 }
 
+function Set-Hidden {
+    # Skrytá kachna nic nedělá: okno je schované, oba časovače i animace stojí a program jen čeká.
+    # Po zobrazení pokračuje tam, kde přestala (pozice, směr, pauza i rozpracovaný pád zůstávají).
+    param([bool]$Hidden)
+    if ($state.Hidden -eq $Hidden) { return }
+    $state.Hidden = $Hidden
+    if ($Hidden) {
+        $moveTimer.Stop()
+        $speechTimer.Stop()
+        # Zastavit, ne jen pozastavit: i pozastavený storyboard nechá WPF tikat ~60× za sekundu.
+        $legs.Stop($window)
+        $glow.Stop($window)
+        $window.Hide()
+        return
+    }
+    # Čas ve skrytu se nepočítá (žádný skok, náhodné chování začne nanovo jako po startu).
+    $now = $clock.Elapsed.TotalSeconds
+    $state.LastTick = $now
+    $state.NextDecision = $now + 5
+    $state.Resting = $false
+    # Ve skrytu se mohlo změnit rozlišení nebo odpojit monitor: první snímek ještě před zobrazením
+    # načte plochu znovu a postaví kachnu na zem, aby se neobjevila mimo obrazovku.
+    $state.NextAreaCheck = 0.0
+    Invoke-MoveTick
+    if ($state.Paused) {
+        Show-Speech (Get-RandomPhrase $complaintPhrases $state.LastPhrase)
+    } elseif (-not $state.Falling) {
+        Show-Speech (Get-RandomPhrase $showPhrases $state.LastPhrase)   # přivolaná kachna promluví až po přistání
+    }
+    $window.Show()
+    $legs.Begin($window, $true)
+    $glow.Begin($window, $true)
+    Update-LegAnimation
+    $moveTimer.Start()
+    Restart-SpeechTimer
+}
+
+function Switch-Hidden { Set-Hidden (-not $state.Hidden) }
+
 # ---------------------------------------------------------------------------
 # Menu (pravé tlačítko na kachně) a ikona v oznamovací oblasti
 # ---------------------------------------------------------------------------
@@ -599,13 +648,44 @@ function New-WpfMenuItem {
     return $item
 }
 
+function New-WpfChoiceMenu {
+    # Podmenu s výběrem jedné možnosti (zaškrtnutí podle stavu nastavuje Update-MenuState).
+    param([string]$Header, [string[]]$Choices, [scriptblock]$OnClick)
+    $parent = New-WpfMenuItem $Header $null
+    foreach ($choice in $Choices) {
+        $item = New-WpfMenuItem $choice $OnClick
+        $item.IsCheckable = $true
+        [void]$parent.Items.Add($item)
+    }
+    return $parent
+}
+
+function New-TrayMenuItem {
+    param([string]$Text, [scriptblock]$OnClick)
+    $item = New-Object System.Windows.Forms.ToolStripMenuItem $Text
+    if ($OnClick) { $item.Add_Click($OnClick) }
+    return $item
+}
+
+function New-TrayChoiceMenu {
+    # Podmenu ikony v oznamovací oblasti s výběrem jedné možnosti.
+    param([string]$Text, [string[]]$Choices, [scriptblock]$OnClick)
+    $parent = New-TrayMenuItem $Text $null
+    foreach ($choice in $Choices) { [void]$parent.DropDownItems.Add((New-TrayMenuItem $choice $OnClick)) }
+    return $parent
+}
+
 function Update-MenuState {
     # Popisky a zaškrtnutí podle aktuálního stavu (volá se při otevření obou menu).
     $pauseText = if ($state.Paused) { 'Pokračovat' } else { 'Pauza' }
     $menuItems.Pause.Header = $pauseText
     $menuItems.TrayPause.Text = $pauseText
+    $hideText = if ($state.Hidden) { 'Zobrazit kachnu' } else { 'Skrýt kachnu' }
+    $menuItems.TrayHide.Text = $hideText
     foreach ($item in $menuItems.Speed.Items) { $item.IsChecked = ($item.Header -eq $state.SpeedName) }
     foreach ($item in $menuItems.TraySpeed.DropDownItems) { $item.Checked = ($item.Text -eq $state.SpeedName) }
+    foreach ($item in $menuItems.PhraseSpeed.Items) { $item.IsChecked = ($item.Header -eq $state.PhraseSpeedName) }
+    foreach ($item in $menuItems.TrayPhraseSpeed.DropDownItems) { $item.Checked = ($item.Text -eq $state.PhraseSpeedName) }
     $menuItems.Random.IsChecked = $state.RandomBehavior
     $menuItems.TrayRandom.Checked = $state.RandomBehavior
 }
@@ -645,30 +725,32 @@ function New-DuckIcon {
 # ---------------------------------------------------------------------------
 $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $ui = @{}
-foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'path2', 'path4') { $ui[$name] = $window.FindName($name) }
+foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'path2', 'path4', 'path6') { $ui[$name] = $window.FindName($name) }
 
 $clock = [System.Diagnostics.Stopwatch]::StartNew()
 $state = @{
-    X              = 0.0
-    Y              = 0.0
-    VY             = 0.0
-    Direction      = 1           # 1 = doprava, -1 = doleva
-    Paused         = $false
-    Dragging       = $false
-    Falling        = $false
-    Resting        = $false
-    RestUntil      = 0.0
-    NextDecision   = 5.0
-    SpeedFactor    = 1.0
-    SpeedName      = $config.DefaultSpeed
-    RandomBehavior = $config.RandomBehavior
-    Area           = $null       # pracovní plocha aktuálního monitoru v DIP
-    NextAreaCheck  = 0.0
-    LastTick       = 0.0
-    LastPhrase     = ''
-    Hwnd           = [IntPtr]::Zero
-    LegsReady      = $false
-    ErrorShown     = $false
+    X               = 0.0
+    Y               = 0.0
+    VY              = 0.0
+    Direction       = 1           # 1 = doprava, -1 = doleva
+    Paused          = $false
+    Hidden          = $false
+    Dragging        = $false
+    Falling         = $false
+    Resting         = $false
+    RestUntil       = 0.0
+    NextDecision    = 5.0
+    SpeedFactor     = 1.0
+    SpeedName       = $config.DefaultSpeed
+    PhraseSpeedName = $config.DefaultPhraseSpeed
+    RandomBehavior  = $config.RandomBehavior
+    Area            = $null       # pracovní plocha aktuálního monitoru v DIP
+    NextAreaCheck   = 0.0
+    LastTick        = 0.0
+    LastPhrase      = ''
+    Hwnd            = [IntPtr]::Zero
+    LegsReady       = $false
+    ErrorShown      = $false
 }
 
 # Nohy: storyboard v kódu (ne v XAML), aby šel v pauze zastavit a zrychlit podle rychlosti chůze
@@ -686,6 +768,18 @@ foreach ($leg in @(@{ Name = 'path2'; To = 35 }, @{ Name = 'path4'; To = -35 }))
     $legs.Children.Add($anim)
 }
 
+# Tělo pomalu mění odstín žluté (jako ve v1); také v kódu, aby šlo ve skryté kachně zastavit
+$glow = New-Object System.Windows.Media.Animation.Storyboard
+$anim = New-Object System.Windows.Media.Animation.ColorAnimation
+$anim.To = [System.Windows.Media.ColorConverter]::ConvertFromString('#FFFBE03B')
+$anim.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromSeconds(3))
+$anim.AutoReverse = $true
+$anim.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
+[System.Windows.Media.Animation.Storyboard]::SetTarget($anim, $ui.path6)
+[System.Windows.Media.Animation.Storyboard]::SetTargetProperty($anim, (New-Object System.Windows.PropertyPath '(0).(1)',
+        ([System.Windows.Shapes.Shape]::FillProperty), ([System.Windows.Media.SolidColorBrush]::ColorProperty)))
+$glow.Children.Add($anim)
+
 # Časovače
 $moveTimer = New-Object System.Windows.Threading.DispatcherTimer
 $moveTimer.Interval = [TimeSpan]::FromMilliseconds($config.FrameMs)
@@ -700,8 +794,7 @@ $moveTimer.Add_Tick({
     }
 })
 
-$speechTimer = New-Object System.Windows.Threading.DispatcherTimer
-$speechTimer.Interval = [TimeSpan]::FromSeconds($config.PhraseIntervalSec)
+$speechTimer = New-Object System.Windows.Threading.DispatcherTimer   # interval nastavuje Restart-SpeechTimer
 $speechTimer.Add_Tick({ Invoke-SpeechTick })
 
 # Menu na pravém tlačítku
@@ -709,40 +802,28 @@ $menuItems = @{}
 $menu = New-Object System.Windows.Controls.ContextMenu
 $menuItems.Pause = New-WpfMenuItem 'Pauza' { Switch-Pause }
 $menuItems.Pause.InputGestureText = 'klepnutí'
-$menuItems.Speed = New-WpfMenuItem 'Rychlost' $null
-foreach ($speedName in $config.Speeds.Keys) {
-    $item = New-WpfMenuItem $speedName { Set-Speed $this.Header }
-    $item.IsCheckable = $true
-    [void]$menuItems.Speed.Items.Add($item)
-}
+$menuItems.Speed = New-WpfChoiceMenu 'Rychlost chůze' $config.Speeds.Keys { Set-Speed $this.Header }
+$menuItems.PhraseSpeed = New-WpfChoiceMenu 'Rychlost hlášek' $config.PhraseSpeeds.Keys { Set-PhraseSpeed $this.Header }
 $menuItems.Random = New-WpfMenuItem 'Náhodné chování' { Set-RandomBehavior $this.IsChecked }
 $menuItems.Random.IsCheckable = $true
-[void]$menu.Items.Add($menuItems.Pause)
-[void]$menu.Items.Add($menuItems.Speed)
-[void]$menu.Items.Add($menuItems.Random)
-[void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
-[void]$menu.Items.Add((New-WpfMenuItem 'Ukončit' { $window.Close() }))
+foreach ($item in @($menuItems.Pause, (New-WpfMenuItem 'Skrýt kachnu' { Set-Hidden $true }),
+        (New-Object System.Windows.Controls.Separator), $menuItems.Speed, $menuItems.PhraseSpeed, $menuItems.Random,
+        (New-Object System.Windows.Controls.Separator), (New-WpfMenuItem 'Ukončit' { $window.Close() }))) {
+    [void]$menu.Items.Add($item)
+}
 $menu.Add_Opened({ Update-MenuState })
 $window.ContextMenu = $menu
 
-# Ikona v oznamovací oblasti (kachnu jde ovládat i když není vidět)
+# Ikona v oznamovací oblasti (kachnu jde ovládat, i když není vidět; tady se skrytá kachna zase zobrazí)
 $trayMenu = New-Object System.Windows.Forms.ContextMenuStrip
-$menuItems.TrayPause = New-Object System.Windows.Forms.ToolStripMenuItem 'Pauza'
-$menuItems.TrayPause.Add_Click({ Switch-Pause })
-$traySummon = New-Object System.Windows.Forms.ToolStripMenuItem 'Přivolat kachnu k myši'
-$traySummon.Add_Click({ Invoke-Summon })
-$menuItems.TraySpeed = New-Object System.Windows.Forms.ToolStripMenuItem 'Rychlost'
-foreach ($speedName in $config.Speeds.Keys) {
-    $item = New-Object System.Windows.Forms.ToolStripMenuItem $speedName
-    $item.Add_Click({ Set-Speed $this.Text })
-    [void]$menuItems.TraySpeed.DropDownItems.Add($item)
-}
-$menuItems.TrayRandom = New-Object System.Windows.Forms.ToolStripMenuItem 'Náhodné chování'
-$menuItems.TrayRandom.Add_Click({ Set-RandomBehavior (-not $state.RandomBehavior) })
-$trayExit = New-Object System.Windows.Forms.ToolStripMenuItem 'Ukončit'
-$trayExit.Add_Click({ $window.Close() })
-foreach ($item in @($menuItems.TrayPause, $traySummon, $menuItems.TraySpeed, $menuItems.TrayRandom,
-        (New-Object System.Windows.Forms.ToolStripSeparator), $trayExit)) {
+$menuItems.TrayPause = New-TrayMenuItem 'Pauza' { Switch-Pause }
+$menuItems.TrayHide = New-TrayMenuItem 'Skrýt kachnu' { Switch-Hidden }
+$menuItems.TraySpeed = New-TrayChoiceMenu 'Rychlost chůze' $config.Speeds.Keys { Set-Speed $this.Text }
+$menuItems.TrayPhraseSpeed = New-TrayChoiceMenu 'Rychlost hlášek' $config.PhraseSpeeds.Keys { Set-PhraseSpeed $this.Text }
+$menuItems.TrayRandom = New-TrayMenuItem 'Náhodné chování' { Set-RandomBehavior (-not $state.RandomBehavior) }
+foreach ($item in @($menuItems.TrayPause, $menuItems.TrayHide, (New-TrayMenuItem 'Přivolat kachnu k myši' { Invoke-Summon }),
+        (New-Object System.Windows.Forms.ToolStripSeparator), $menuItems.TraySpeed, $menuItems.TrayPhraseSpeed, $menuItems.TrayRandom,
+        (New-Object System.Windows.Forms.ToolStripSeparator), (New-TrayMenuItem 'Ukončit' { $window.Close() }))) {
     [void]$trayMenu.Items.Add($item)
 }
 $trayMenu.Add_Opening({ Update-MenuState })
@@ -775,13 +856,14 @@ $window.Add_SourceInitialized({
 
 $window.Add_Loaded({
     $legs.Begin($window, $true)
+    $glow.Begin($window, $true)
     $state.LegsReady = $true
     Update-LegAnimation
     Show-Speech (Get-RandomPhrase $duckPhrases '')
     $state.LastTick = $clock.Elapsed.TotalSeconds
     $state.NextDecision = $state.LastTick + 5
     $moveTimer.Start()
-    $speechTimer.Start()
+    Restart-SpeechTimer
 })
 
 # Neošetřená chyba v obsluze události nemá shodit celou kachnu
@@ -798,9 +880,13 @@ $window.Top = $primaryArea.Bottom - $window.Height
 # ---------------------------------------------------------------------------
 # Spuštění
 # ---------------------------------------------------------------------------
+# Show + vlastní smyčka zpráv místo ShowDialog: ShowDialog by skončil už při skrytí okna (Hide), ne až při zavření.
+$frame = New-Object System.Windows.Threading.DispatcherFrame
+$window.Add_Closed({ $frame.Continue = $false })
 try {
     $tray.Visible = $true
-    [void]$window.ShowDialog()
+    $window.Show()
+    [System.Windows.Threading.Dispatcher]::PushFrame($frame)
 } finally {
     $moveTimer.Stop()
     $speechTimer.Stop()

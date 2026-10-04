@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     Kontroluje kódování, syntaxi, XAML, rozměry kresby, hlášky, spouštěč .cmd a hlavně logiku
-    kachny (chůze, pauza, klepnutí, přetažení, pád, změna monitoru, náhodné chování) na
-    simulovaných monitorech 1080p / 1200p / 2K / 4K s různým škálováním.
+    kachny (chůze, pauza, klepnutí, přetažení, pád, změna monitoru, náhodné chování, rychlost hlášek,
+    skrytí a zobrazení) na simulovaných monitorech 1080p / 1200p / 2K / 4K s různým škálováním.
     Funkce se berou přímo z powershell_kachna_v2.ps1; okno, časovače a monitory jsou nahrazené
     jednoduchými náhradními objekty. PSScriptAnalyzer se použije, pokud je k dispozici.
 
@@ -181,8 +181,8 @@ $pathsV2 = @{}; $pathsV1 = @{}
 foreach ($p in $xaml.SelectNodes("//*[local-name()='Path'][@Name]")) { $pathsV2[$p.GetAttribute('Name')] = $p.SelectSingleNode(".//*[local-name()='PathGeometry']").GetAttribute('Figures') }
 foreach ($p in $xamlV1.SelectNodes("//*[local-name()='Path'][@Name]")) { $pathsV1[$p.GetAttribute('Name')] = $p.SelectSingleNode(".//*[local-name()='PathGeometry']").GetAttribute('Figures') }
 foreach ($n in 'path2', 'path4', 'path6', 'path10') { Assert-True ($pathsV2[$n] -eq $pathsV1[$n]) "tvar $n je stejný jako ve v1" }
-$legTriggers = $xaml.SelectNodes("//*[local-name()='Path'][@Name='path2' or @Name='path4']//*[local-name()='EventTrigger']")
-Assert-True ($legTriggers.Count -eq 0) 'nohy nemají animaci v XAML (řídí ji skript kvůli pauze)'
+$xamlAnimations = $xaml.SelectNodes("//*[local-name()='EventTrigger' or local-name()='Storyboard']")
+Assert-True ($xamlAnimations.Count -eq 0) 'XAML nemá žádné animace (nohy i tělo řídí skript, aby šly zastavit v pauze a ve skrytu)'
 
 # Ořez plátna musí obsáhnout celou kresbu včetně pohybu nohou (+-35) a poloviny tahu (2.5)
 $bounds = @()
@@ -221,6 +221,10 @@ Assert-True ($config.Speeds.Contains($config.DefaultSpeed)) "výchozí rychlost 
 $v1Speed = 5 / 0.35
 Assert-True ([math]::Abs($config.Speeds[$config.DefaultSpeed] - $v1Speed) -lt 1.5) ("výchozí rychlost {0} DIP/s odpovídá v1 ({1:N1} px/s)" -f $config.Speeds[$config.DefaultSpeed], $v1Speed)
 Assert-True ($config.ComplaintIntervalSec -eq 60) 'stížnost v pauze každou minutu'
+$ps = $config.PhraseSpeeds
+Assert-True ($ps.Contains($config.DefaultPhraseSpeed)) "výchozí rychlost hlášek '$($config.DefaultPhraseSpeed)' existuje"
+Assert-True ((@($ps.Keys) -join ',') -eq (@($config.Speeds.Keys) -join ',')) 'rychlost hlášek má stejné volby jako rychlost chůze'
+Assert-True ($ps['Pomalá'] -gt $ps['Normální'] -and $ps['Normální'] -gt $ps['Rychlá'] -and $ps['Rychlá'] -ge 3) ("rychlost hlášek: pomalá {0} s, normální {1} s, rychlá {2} s (aspoň 3 s na přečtení)" -f $ps['Pomalá'], $ps['Normální'], $ps['Rychlá'])
 Assert-True ($config.FrameMs -le 50) "plynulý pohyb ($([math]::Round(1000 / $config.FrameMs)) snímků/s, v1 měla 3)"
 
 $duckPhrases = Get-AssignedValue $v2.Ast 'duckPhrases'
@@ -229,13 +233,16 @@ $complaintPhrases = Get-AssignedValue $v2.Ast 'complaintPhrases'
 $resumePhrases = Get-AssignedValue $v2.Ast 'resumePhrases'
 $dropPhrases = Get-AssignedValue $v2.Ast 'dropPhrases'
 $restPhrases = Get-AssignedValue $v2.Ast 'restPhrases'
-Assert-True (($duckPhrases -join "`n") -ceq ($duckPhrasesV1 -join "`n")) "v2 má všechny hlášky z v1 beze změny ($($duckPhrases.Count))"
+$showPhrases = Get-AssignedValue $v2.Ast 'showPhrases'
+$missingV1 = @($duckPhrasesV1 | Where-Object { $duckPhrases -cnotcontains $_ })
+$missingV1 | ForEach-Object { Write-Host "          chybí: $_" -ForegroundColor Red }
+Assert-True ($missingV1.Count -eq 0) "v2 má všechny hlášky z v1 beze změny ($($duckPhrasesV1.Count) z v1, celkem $($duckPhrases.Count))"
 Assert-True ($complaintPhrases.Count -ge 10) "stížností je dost ($($complaintPhrases.Count))"
-foreach ($list in @(@{ N = 'stížnosti'; L = $complaintPhrases }, @{ N = 'po pauze'; L = $resumePhrases }, @{ N = 'po přistání'; L = $dropPhrases }, @{ N = 'odpočinek'; L = $restPhrases })) {
+foreach ($list in @(@{ N = 'stížnosti'; L = $complaintPhrases }, @{ N = 'po pauze'; L = $resumePhrases }, @{ N = 'po přistání'; L = $dropPhrases }, @{ N = 'odpočinek'; L = $restPhrases }, @{ N = 'po zobrazení'; L = $showPhrases })) {
     Assert-True ($list.L.Count -ge 3 -and @($list.L | Sort-Object -Unique).Count -eq $list.L.Count) "hlášky '$($list.N)': aspoň 3, bez duplicit"
 }
 # odhad: ~7,2 DIP na znak při FontSize 14, text široký 206 DIP; +20 znaků rezerva na dlouhé uživatelské jméno
-$tooLong = @(@($duckPhrases) + $complaintPhrases + $resumePhrases + $dropPhrases + $restPhrases |
+$tooLong = @(@($duckPhrases) + $complaintPhrases + $resumePhrases + $dropPhrases + $restPhrases + $showPhrases |
         Where-Object { [math]::Ceiling(($_.Length + 20) * 7.2 / 206) -gt 5 })
 $tooLong | ForEach-Object { Write-Host "          příliš dlouhá: $_" -ForegroundColor Red }
 Assert-True ($tooLong.Count -eq 0) 'všechny hlášky se vejdou do bubliny (max 5 řádků)'
@@ -246,20 +253,53 @@ Assert-True ($tooLong.Count -eq 0) 'všechny hlášky se vejdou do bubliny (max 
 $functions = $v2.Ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)
 foreach ($f in $functions) { . ([scriptblock]::Create($f.Extent.Text)) }
 
-$window = [pscustomobject]@{ Left = 0.0; Top = 0.0; Width = $winW; Height = $winH }
+# ShownAt = kde okno bylo ve chvíli zobrazení (kachna se nemá objevit na staré pozici a pak skočit jinam)
+$window = [pscustomobject]@{ Left = 0.0; Top = 0.0; Width = $winW; Height = $winH; IsVisible = $true; ShownAt = $null }
+$window | Add-Member -MemberType ScriptMethod -Name Hide -Value { $this.IsVisible = $false }
+$window | Add-Member -MemberType ScriptMethod -Name Show -Value { $this.IsVisible = $true; $this.ShownAt = [pscustomobject]@{ Left = $this.Left; Top = $this.Top } }
 $ui = @{
     SpeechText = [pscustomobject]@{ Text = '' }
     RootFlip   = [pscustomobject]@{ ScaleX = 1 }
     TextFlip   = [pscustomobject]@{ ScaleX = 1 }
 }
-$speechTimer = [pscustomobject]@{ Interval = [TimeSpan]::Zero; Running = $false }
-$speechTimer | Add-Member -MemberType ScriptMethod -Name Stop -Value { $this.Running = $false }
-$speechTimer | Add-Member -MemberType ScriptMethod -Name Start -Value { $this.Running = $true }
-$legs = [pscustomobject]@{ Paused = $false; Ratio = 1.0 }
-$legs | Add-Member -MemberType ScriptMethod -Name Pause -Value { $this.Paused = $true }
-$legs | Add-Member -MemberType ScriptMethod -Name Resume -Value { $this.Paused = $false }
-$legs | Add-Member -MemberType ScriptMethod -Name Seek -Value { }
-$legs | Add-Member -MemberType ScriptMethod -Name SetSpeedRatio -Value { param($o, $r) $this.Ratio = $r }
+function New-TimerMock {
+    $timer = [pscustomobject]@{ Interval = [TimeSpan]::Zero; Running = $false }
+    $timer | Add-Member -MemberType ScriptMethod -Name Stop -Value { $this.Running = $false }
+    $timer | Add-Member -MemberType ScriptMethod -Name Start -Value { $this.Running = $true }
+    return $timer
+}
+function New-StoryboardMock {
+    # Running = spuštěný (Begin) a nezastavený (Stop), Paused = pozastavený (Pause)
+    $sb = [pscustomobject]@{ Running = $false; Paused = $false; Ratio = 1.0 }
+    $sb | Add-Member -MemberType ScriptMethod -Name Begin -Value { $this.Running = $true; $this.Paused = $false; $this.Ratio = 1.0 }
+    $sb | Add-Member -MemberType ScriptMethod -Name Stop -Value { $this.Running = $false }
+    $sb | Add-Member -MemberType ScriptMethod -Name Pause -Value { $this.Paused = $true }
+    $sb | Add-Member -MemberType ScriptMethod -Name Resume -Value { $this.Paused = $false }
+    $sb | Add-Member -MemberType ScriptMethod -Name Seek -Value { }
+    $sb | Add-Member -MemberType ScriptMethod -Name SetSpeedRatio -Value { param($o, $r) $this.Ratio = $r }
+    return $sb
+}
+$moveTimer = New-TimerMock
+$speechTimer = New-TimerMock
+$legs = New-StoryboardMock
+$glow = New-StoryboardMock
+# Menu: položky se stejnými vlastnostmi jako WPF MenuItem (Header, IsChecked) a WinForms ToolStripMenuItem (Text, Checked)
+function New-ChoiceMenuMock {
+    param([string[]]$Choices, [switch]$Tray)
+    if ($Tray) { return [pscustomobject]@{ DropDownItems = @($Choices | ForEach-Object { [pscustomobject]@{ Text = $_; Checked = $false } }) } }
+    return [pscustomobject]@{ Items = @($Choices | ForEach-Object { [pscustomobject]@{ Header = $_; IsChecked = $false } }) }
+}
+$menuItems = @{
+    Pause           = [pscustomobject]@{ Header = '' }
+    TrayPause       = [pscustomobject]@{ Text = '' }
+    TrayHide        = [pscustomobject]@{ Text = '' }
+    Speed           = New-ChoiceMenuMock $config.Speeds.Keys
+    TraySpeed       = New-ChoiceMenuMock $config.Speeds.Keys -Tray
+    PhraseSpeed     = New-ChoiceMenuMock $config.PhraseSpeeds.Keys
+    TrayPhraseSpeed = New-ChoiceMenuMock $config.PhraseSpeeds.Keys -Tray
+    Random          = [pscustomobject]@{ IsChecked = $false }
+    TrayRandom      = [pscustomobject]@{ Checked = $false }
+}
 $clock = [pscustomobject]@{ T = 0.0 }
 $clock | Add-Member -MemberType ScriptProperty -Name Elapsed -Value { [TimeSpan]::FromSeconds($this.T) }
 
@@ -295,17 +335,24 @@ function Reset-Duck {
     $state.NextAreaCheck = $clock.T + 1000
     Set-Direction 1
     Set-WindowPosition
+    # jako po načtení okna (Loaded): okno je vidět, časovače běží, animace taky
+    $window.IsVisible = $true
+    $legs.Begin($window, $true)
+    $glow.Begin($window, $true)
+    Update-LegAnimation
+    $moveTimer.Start()
+    Restart-SpeechTimer
 }
 
 function Invoke-Ticks {
-    # Simuluje běh časovače pohybu. Track sbírá min/max pozice a otočky.
+    # Simuluje běh časovače pohybu (jen když běží). Track sbírá min/max pozice a otočky.
     param([double]$Seconds, [double]$Step = 0.1)
     $track = @{ MinX = [double]::MaxValue; MaxX = [double]::MinValue; Turns = 0; Rested = $false; FlipOk = $true; SpeedFactors = @() }
     $dir = $state.Direction
     $n = [int][math]::Ceiling($Seconds / $Step)
     for ($i = 0; $i -lt $n; $i++) {
         $clock.T += $Step
-        Invoke-MoveTick
+        if ($moveTimer.Running) { Invoke-MoveTick }
         $track.MinX = [math]::Min($track.MinX, $window.Left)
         $track.MaxX = [math]::Max($track.MaxX, $window.Left)
         if ($state.Direction -ne $dir) { $track.Turns++; $dir = $state.Direction }
@@ -388,7 +435,8 @@ $first = $ui.SpeechText.Text
 Invoke-SpeechTick
 Assert-True ($ui.SpeechText.Text -in $complaintPhrases -and $ui.SpeechText.Text -ne $first) 'po minutě přijde jiná stížnost (žádné běžné hlášky)'
 Set-Paused $false
-Assert-True ($ui.SpeechText.Text -in $resumePhrases -and $speechTimer.Interval.TotalSeconds -eq $config.PhraseIntervalSec) 'po zrušení pauzy poděkuje a mluví zase každé 4 s'
+$normalInterval = $config.PhraseSpeeds[$config.DefaultPhraseSpeed]
+Assert-True ($ui.SpeechText.Text -in $resumePhrases -and $speechTimer.Interval.TotalSeconds -eq $normalInterval) "po zrušení pauzy poděkuje a mluví zase každých $normalInterval s"
 Assert-True (-not $legs.Paused -and [math]::Abs($legs.Ratio - 1.0) -lt 0.001) 'nohy zase kmitají jako ve v1'
 [void](Invoke-Ticks -Seconds 5)
 Assert-True ($state.X -gt $xBefore) 'po zrušení pauzy jde dál'
@@ -508,6 +556,107 @@ Set-Speed 'Rychlá'
 Assert-True ($state.SpeedName -eq 'Rychlá' -and (Get-CurrentSpeed) -eq $config.Speeds['Rychlá']) 'změna rychlosti z menu'
 Set-Speed 'Neexistuje'
 Assert-True ($state.SpeedName -eq 'Rychlá') 'neznámá rychlost se ignoruje'
+
+# ===========================================================================
+Write-Section 'Rychlost hlášek'
+# ===========================================================================
+Reset-Duck $main
+Assert-True ($state.PhraseSpeedName -eq $config.DefaultPhraseSpeed -and $speechTimer.Running -and $speechTimer.Interval.TotalSeconds -eq $normalInterval) "po startu mluví každých $normalInterval s ($($config.DefaultPhraseSpeed))"
+foreach ($name in $config.PhraseSpeeds.Keys) {
+    Set-PhraseSpeed $name
+    $sec = $config.PhraseSpeeds[$name]
+    Assert-True ($state.PhraseSpeedName -eq $name -and $speechTimer.Running -and $speechTimer.Interval.TotalSeconds -eq $sec) "rychlost hlášek '$name': mluví každých $sec s"
+}
+Set-PhraseSpeed 'Rychlá'
+Set-PhraseSpeed 'Neexistuje'
+Assert-True ($state.PhraseSpeedName -eq 'Rychlá' -and $speechTimer.Interval.TotalSeconds -eq $config.PhraseSpeeds['Rychlá']) 'neznámá rychlost hlášek se ignoruje'
+Set-Paused $true
+Set-PhraseSpeed 'Pomalá'
+Assert-True ($state.PhraseSpeedName -eq 'Pomalá' -and $speechTimer.Interval.TotalSeconds -eq $config.ComplaintIntervalSec) 'v pauze si kachna dál stěžuje jednou za minutu, ať je rychlost hlášek jakákoli'
+Set-Paused $false
+Assert-True ($speechTimer.Interval.TotalSeconds -eq $config.PhraseSpeeds['Pomalá']) 'po zrušení pauzy mluví podle rychlosti hlášek zvolené v pauze'
+Set-Speed 'Rychlá'
+Assert-True ($state.SpeedName -eq 'Rychlá' -and $state.PhraseSpeedName -eq 'Pomalá') 'rychlost chůze a rychlost hlášek se nastavují nezávisle'
+Update-MenuState
+$checked = @($menuItems.Speed.Items | Where-Object IsChecked | ForEach-Object Header) + @($menuItems.TraySpeed.DropDownItems | Where-Object Checked | ForEach-Object Text)
+Assert-True (($checked -join ',') -eq 'Rychlá,Rychlá') 'menu: u rychlosti chůze je zaškrtnutá jen zvolená možnost (u kachny i u ikony)'
+$checked = @($menuItems.PhraseSpeed.Items | Where-Object IsChecked | ForEach-Object Header) + @($menuItems.TrayPhraseSpeed.DropDownItems | Where-Object Checked | ForEach-Object Text)
+Assert-True (($checked -join ',') -eq 'Pomalá,Pomalá') 'menu: u rychlosti hlášek je zaškrtnutá jen zvolená možnost (u kachny i u ikony)'
+
+# ===========================================================================
+Write-Section 'Skrytí a zobrazení'
+# ===========================================================================
+Reset-Duck $main
+[void](Invoke-Ticks -Seconds 5)
+Update-MenuState
+Assert-True ($menuItems.TrayHide.Text -eq 'Skrýt kachnu') "ikona: nabízí '$($menuItems.TrayHide.Text)', když je kachna vidět"
+$xHidden = $state.X; $dirHidden = $state.Direction; $textHidden = $ui.SpeechText.Text
+Set-Hidden $true
+Assert-True (-not $window.IsVisible -and $state.Hidden) 'skrytí: okno zmizí'
+Assert-True (-not $moveTimer.Running -and -not $speechTimer.Running) 'skrytí: oba časovače stojí'
+# jen pozastavený storyboard nestačí, WPF by dál tikalo ~60x za sekundu
+Assert-True (-not $legs.Running -and -not $glow.Running) 'skrytí: animace nohou i těla jsou zastavené (program jen čeká)'
+Update-MenuState
+Assert-True ($menuItems.TrayHide.Text -eq 'Zobrazit kachnu') "ikona: nabízí '$($menuItems.TrayHide.Text)', když je kachna skrytá"
+[void](Invoke-Ticks -Seconds 120)
+Assert-True ($state.X -eq $xHidden -and $window.Left -eq $xHidden -and $ui.SpeechText.Text -eq $textHidden) 'skrytá kachna se 2 minuty nepohnula ani nepromluvila'
+Set-Hidden $true
+Assert-True ($state.Hidden -and -not $window.IsVisible -and -not $moveTimer.Running) 'opakované skrytí nic nerozbije'
+# v menu u ikony jde nastavení měnit i ve skrytu, kachnu to ale neprobudí
+Set-Speed 'Pomalá'; Set-PhraseSpeed 'Rychlá'; Set-RandomBehavior $true; Switch-Pause; Switch-Pause
+Assert-True (-not $window.IsVisible -and -not $moveTimer.Running -and -not $speechTimer.Running -and -not $legs.Running -and -not $glow.Running) 'změny nastavení ve skrytu kachnu neprobudí'
+Switch-Hidden
+Assert-True ($window.IsVisible -and -not $state.Hidden -and $moveTimer.Running -and $speechTimer.Running) 'zobrazení: okno i oba časovače zase běží'
+Assert-True ($legs.Running -and -not $legs.Paused -and $glow.Running) 'zobrazení: nohy i tělo se zase hýbou'
+Assert-True ($ui.SpeechText.Text -in $showPhrases) "zobrazení: kachna se ozve: '$($ui.SpeechText.Text)'"
+Assert-True ($speechTimer.Interval.TotalSeconds -eq $config.PhraseSpeeds['Rychlá']) 'zobrazení: mluví podle rychlosti hlášek zvolené ve skrytu'
+Assert-True ($window.ShownAt.Left -eq $xHidden -and $state.Direction -eq $dirHidden) 'zobrazení: kachna je tam, kde zmizela, a jde stejným směrem'
+[void](Invoke-Ticks -Seconds 2)
+Assert-True ($state.X -ne $xHidden) 'zobrazení: chodí dál'
+
+# Zapauzovaná kachna zůstane po zobrazení zapauzovaná
+Reset-Duck $main
+Set-Paused $true
+Set-Hidden $true
+Set-Hidden $false
+Assert-True ($state.Paused -and $legs.Running -and $legs.Paused -and $ui.SpeechText.Text -in $complaintPhrases -and $speechTimer.Interval.TotalSeconds -eq $config.ComplaintIntervalSec) 'zapauzovaná kachna po zobrazení dál stojí a stěžuje si jednou za minutu'
+Set-Paused $false
+
+# Monitor odpojený ve skrytu: kachna se nesmí objevit mimo obrazovku
+Reset-Duck $right
+$state.X = 3500; Set-WindowPosition
+Set-Hidden $true
+$sim.WindowArea = $main
+Set-Hidden $false
+$at = $window.ShownAt
+Assert-True ($at.Left -ge $main.Left -and $at.Left + $window.Width -le $main.Right -and [math]::Abs($at.Top + $window.Height - $main.Bottom) -lt 0.001) 'monitor odpojený ve skrytu: kachna se ukáže rovnou na zbylém monitoru'
+
+# Přivolání skryté kachny z ikony
+Reset-Duck $main
+$sim.Layout = @($main, $right)
+Set-Hidden $true
+$sim.CursorArea = $right
+$sim.CursorDip = [pscustomobject]@{ X = 3000; Y = 1150 }
+$textBefore = $ui.SpeechText.Text
+Invoke-Summon
+Assert-True ($window.IsVisible -and $moveTimer.Running -and $state.Falling -and $window.ShownAt.Top -eq $right.Top -and $window.ShownAt.Left -eq 3000 - $window.Width / 2) 'přivolání skryté kachny: zobrazí se rovnou nahoře nad kurzorem'
+Assert-True ($ui.SpeechText.Text -eq $textBefore) 'přivolání skryté kachny: během pádu nic neříká'
+[void](Invoke-Ticks -Seconds 2)
+Assert-True (-not $state.Falling -and [math]::Abs($window.Top + $window.Height - $right.Bottom) -lt 0.001 -and $ui.SpeechText.Text -in $dropPhrases) 'přivolání skryté kachny: dopadne a promluví'
+
+# Skrytí během pádu
+Reset-Duck $main
+$sim.CursorArea = $main
+$window.Left = 800; $window.Top = 50
+Complete-Drag -StartLeft 0 -StartTop 682
+[void](Invoke-Ticks -Seconds 0.2)
+Set-Hidden $true
+$yHidden = $state.Y
+[void](Invoke-Ticks -Seconds 5)
+Assert-True ($state.Falling -and $state.Y -eq $yHidden) 'skrytí během pádu: pád se zastaví'
+Set-Hidden $false
+[void](Invoke-Ticks -Seconds 2)
+Assert-True (-not $state.Falling -and [math]::Abs($window.Top + $window.Height - $main.Bottom) -lt 0.001) 'po zobrazení pád dokončí a stojí na zemi'
 
 # ===========================================================================
 Write-Section 'PSScriptAnalyzer'

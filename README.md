@@ -39,8 +39,8 @@ Ovládání (Controls):
 |---|---|
 | Klepnutí levým tlačítkem na kachnu (Left click) | Pauza / pokračování. Zapauzovaná kachna si každou minutu postěžuje. (Pause / resume. A paused duck complains every minute.) |
 | Přetažení levým tlačítkem (Left drag) | Přesun kachny kamkoli, i na jiný monitor. Po puštění spadne na spodní okraj obrazovky. (Move the duck anywhere, even to another monitor. When released, it falls to the bottom of the screen.) |
-| Pravé tlačítko na kachně (Right click) | Menu: Pauza, Rychlost, Náhodné chování, Ukončit. (Menu: Pause, Speed, Random behaviour, Exit.) |
-| Ikona vedle hodin (Tray icon) | Stejné menu + „Přivolat kachnu k myši“, dvojklik také přivolá kachnu. (Same menu + "Summon duck to mouse", double-click summons it too.) |
+| Pravé tlačítko na kachně (Right click) | Menu: Pauza, Skrýt kachnu, Rychlost chůze, Rychlost hlášek, Náhodné chování, Ukončit. (Menu: Pause, Hide duck, Walking speed, Phrase speed, Random behaviour, Exit.) |
+| Ikona vedle hodin (Tray icon) | Stejné menu + „Přivolat kachnu k myši“, dvojklik také přivolá kachnu. Tady se skrytá kachna zase zobrazí („Zobrazit kachnu“). Skrytá kachna stojí, mlčí a nezatěžuje počítač. (Same menu + "Summon duck to mouse", double-click summons it too. A hidden duck is shown again here ("Show duck"). While hidden, the duck stands still, stays quiet and uses no CPU.) |
 
 Novinky ve v2 (What's new in v2):
 
@@ -78,7 +78,7 @@ chmod +x linux_kachna_v2_launch.sh
 
 ## Testy (Tests)
 
-Testy PowerShell verze v2 nepotřebují Windows, běží i v PowerShell 7 na Linuxu. Kontrolují kódování, XAML, rozměry kresby, hlášky a logiku kachny (chůze, pauza, přetažení, pád, změna monitoru) na simulovaných monitorech 1080p / 1200p / 2K / 4K.
+Testy PowerShell verze v2 nepotřebují Windows, běží i v PowerShell 7 na Linuxu. Kontrolují kódování, XAML, rozměry kresby, hlášky a logiku kachny (chůze, pauza, přetažení, pád, změna monitoru, skrytí) na simulovaných monitorech 1080p / 1200p / 2K / 4K.
 (The v2 tests do not need Windows and also run in PowerShell 7 on Linux.)
 
 ```powershell
