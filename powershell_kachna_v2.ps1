@@ -89,7 +89,7 @@ $config = @{
     EcoFps               = @{ Legs = 12; Glow = 0; WalkMin = 6; WalkMax = 15; Fall = 30 }   # úsporný režim (Glow 0 = tělo nemění barvu)
     EcoPhraseFactor      = 2          # v úsporném režimu kachna mluví 2x méně často
     EcoModes             = [ordered]@{ 'Vypnutý' = 'Off'; 'Na baterii' = 'Battery'; 'Vždy' = 'On' }
-    DefaultEco           = 'Na baterii'
+    DefaultEco           = 'Vypnutý'
     HideChoices          = [ordered]@{ '15 minut' = 15; '30 minut' = 30; '1 hodinu' = 60; '2 hodiny' = 120 }
     Reminders            = [ordered]@{ Drink = 60; Stretch = 120 }   # připomínky: po kolika minutách
     PomodoroMin          = @{ Work = 25; Break = 5 }
@@ -1960,7 +1960,7 @@ $state = @{
     DistanceDate    = [datetime]::MinValue
     Reminders       = @{ Drink = $false; Stretch = $false }
     ReminderDue     = @{ Drink = 0.0; Stretch = 0.0 }
-    Pomodoro        = $false
+    Pomodoro        = $true
     PomodoroPhase   = 'Work'
     PomodoroDue     = 0.0
     DoubleClickSec  = 0.5
