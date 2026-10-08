@@ -80,7 +80,7 @@ $config = @{
     IdleSleepMin         = 10         # po kolika minutách bez pohybu myši kachna usne (0 = nikdy)
     AreaCheckSec         = 5          # pojistka: jak často znovu načíst rozměry monitoru (jinak stačí události Windows)
     PowerCheckSec        = 60         # pojistka: jak často zjistit napájení (síť / baterie) a datum pro převlek
-    RandomBehavior       = $true      # náhodné zastavení / otočení / změna tempa
+    RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
     Sound                = $false     # kvák při klepnutí, poskoku, jídle a připomínce
