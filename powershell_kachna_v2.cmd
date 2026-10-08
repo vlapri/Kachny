@@ -23,4 +23,5 @@ if /i "%~1"=="ladeni" (
 )
 
 rem conhost --headless = PowerShell bez viditelneho okna (Windows 10 1809 a novejsi)
+rem powershell.exe = Windows PowerShell 5.1: mensi pametove naroky a rychlejsi start nez pwsh 7
 start "" conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File "%KACHNA%"
