@@ -335,7 +335,7 @@ Assert-True ($ps['Pomalá'] -gt $ps['Normální'] -and $ps['Normální'] -gt $ps
 $fps = $config.Fps; $eco = $config.EcoFps
 Assert-True ($fps.Legs -le 30 -and $fps.Glow -le 15 -and $fps.WalkMax -le 30 -and $fps.Fall -le 60) ("snímky omezené: nohy {0}, tělo {1}, chůze nejvýš {2}, pád {3} (WPF jinak ~60/s)" -f $fps.Legs, $fps.Glow, $fps.WalkMax, $fps.Fall)
 Assert-True ($eco.Legs -lt $fps.Legs -and $eco.Glow -eq 0 -and $eco.WalkMax -lt $fps.WalkMax -and $eco.Fall -lt $fps.Fall -and $config.EcoPhraseFactor -gt 1) 'úsporný režim má méně snímků, tělo nemění barvu a kachna mluví méně'
-Assert-True ($config.EcoModes.Contains($config.DefaultEco) -and $config.EcoModes[$config.DefaultEco] -eq 'Battery') 'úsporný režim se ve výchozím stavu zapíná na baterii'
+Assert-True ($config.EcoModes.Contains($config.DefaultEco) -and $config.EcoModes[$config.DefaultEco] -eq 'Off') 'úsporný režim je ve výchozím stavu vypnutý'
 Assert-True ($config.HeartbeatSec -ge 1 -and $config.AreaCheckSec -ge 5 -and $config.SleepCheckSec -ge 1) ("PowerShell se probouzí nejvýš 1x za sekundu, monitor kontroluje jen jako pojistku po {0} s" -f $config.AreaCheckSec)
 Assert-True ($config.CrossMonitors -and $config.Costumes -and -not $config.Sound -and $config.Topmost) 'výchozí: chůze přes monitory a převleky zapnuté, zvuk vypnutý, vždy navrchu'
 Assert-True ($config.SoftwareRendering -is [bool] -and $config.Priority -eq 'BelowNormal') 'nastavení vykreslování a priority procesu'
@@ -559,6 +559,7 @@ function Reset-Duck {
     Update-Speed
     Update-Power
     Update-Costume
+    Initialize-Reminder
     Show-Speech (Get-RandomPhrase $duckPhrases '')
     Update-Animation
     Restart-HeartTimer
@@ -1046,6 +1047,20 @@ Assert-True ($ui.SpeechBubble.Visibility -eq 'Hidden' -and -not $speechTimer.Run
 Set-Paused $false
 Invoke-Menu 'Nastavení', 'Tichý režim (bez bublin)'
 Assert-True (-not $state.Quiet -and $speechTimer.Running) 'vypnutí tichého režimu: kachna zase mluví'
+Assert-True ($state.Phrases) 'kachní hlášky jsou ve výchozím stavu zapnuté'
+Invoke-Menu 'Nastavení', 'Zapnuté kachní hlášky'
+$text = $ui.SpeechText.Text
+[void](Invoke-Sim -Seconds 60)
+Assert-True (-not $state.Phrases -and -not $speechTimer.Running -and $ui.SpeechText.Text -eq $text) 'vypnuté kachní hlášky: minutu nic neřekne, časovač hlášek stojí'
+Set-Paused $true
+[void](Invoke-Sim -Seconds ($config.ComplaintIntervalSec + 1))
+Assert-True (-not $speechTimer.Running -and $ui.SpeechText.Text -in $complaintPhrases) 'vypnuté kachní hlášky: v pauze jen jedna stížnost hned po klepnutí, další už ne'
+Set-Paused $false
+Start-Hop
+[void](Invoke-Sim -Seconds 2)
+Assert-True ($ui.SpeechBubble.Visibility -eq 'Visible' -and -not $speechTimer.Running) 'vypnuté kachní hlášky: reakce (poskok, přistání…) v bublině zůstávají'
+Invoke-Menu 'Nastavení', 'Zapnuté kachní hlášky'
+Assert-True ($state.Phrases -and $speechTimer.Running) 'zapnutí kachních hlášek: kachna zase mluví'
 
 # ===========================================================================
 Write-Section 'Skrytí a zobrazení'
@@ -1268,6 +1283,16 @@ Assert-True ($null -eq $state.Food -and -not $sim.Crumb.Visible) 'přenesení na
 Write-Section 'Připomínky'
 # ===========================================================================
 Reset-Duck $main
+Assert-True ($state.Reminders.Drink -and $state.Reminders.Stretch -and $state.Pomodoro) 'všechny připomínky jsou ve výchozím stavu zapnuté'
+[void](Invoke-Sim -Seconds 60)
+$reminderTexts = @($reminderPhrases.Values | ForEach-Object { $_ })
+Assert-True ($ui.SpeechText.Text -notin $reminderTexts -and $state.PomodoroDue -ge 25 * 60) 'po startu se připomínky neozvou hned, Pomodoro začíná prací'
+[void](Invoke-Sim -Seconds (25 * 60 - 60 + 1) -Step 1)
+Assert-True ($ui.SpeechText.Text -in $reminderPhrases.PomodoroBreak -and $state.PomodoroPhase -eq 'Break') 'výchozí Pomodoro: po 25 minutách pauza'
+foreach ($item in 'Pitný režim (každou hodinu)', 'Protažení (každé 2 hodiny)', 'Pomodoro (25 min práce, 5 min pauza)') { Invoke-Menu 'Připomínky', $item }
+Assert-True (-not ($state.Reminders.Drink -or $state.Reminders.Stretch -or $state.Pomodoro)) 'menu: připomínky jdou vypnout'
+Reset-Duck $main
+foreach ($key in 'Drink', 'Stretch', 'Pomodoro') { Set-Reminder $key $false }
 Set-Paused $true
 Invoke-Menu 'Připomínky', 'Pitný režim (každou hodinu)'
 Assert-True ($state.Reminders.Drink) 'menu: pitný režim zapnutý'
@@ -1373,10 +1398,11 @@ $trayTop = @($trayItems | Where-Object { $_.Tag } | ForEach-Object { $_.Text })
 Assert-True ((@($trayTop | Where-Object { $_ -ne 'Přivolat kachnu k myši' }) -join '|') -eq ($duckTop -join '|')) "obě menu mají stejné položky: $($duckTop -join ', ')"
 Assert-True ($menuItems[0].Header -eq 'Pauza' -and $menuItems[0].InputGestureText -eq 'klepnutí') 'menu kachny: Pauza (klepnutí)'
 $expectChecked = [ordered]@{
-    'Rychlost chůze|Normální' = $true; 'Rychlost chůze|Rychlá' = $false; 'Úsporný režim|Na baterii' = $true; 'Úsporný režim|Vždy' = $false
+    'Rychlost chůze|Normální' = $true; 'Rychlost chůze|Rychlá' = $false; 'Úsporný režim|Vypnutý' = $true; 'Úsporný režim|Na baterii' = $false
     'Nastavení|Náhodné chování' = $false; 'Nastavení|Chůze přes monitory' = $true; 'Nastavení|Sezónní převleky' = $true
-    'Nastavení|Tichý režim (bez bublin)' = $false; 'Nastavení|Zvuk (kvák)' = $false; 'Nastavení|Vždy navrchu' = $true
-    'Připomínky|Pitný režim (každou hodinu)' = $false; 'Pojď za myší' = $false
+    'Nastavení|Zapnuté kachní hlášky' = $true; 'Nastavení|Tichý režim (bez bublin)' = $false; 'Nastavení|Zvuk (kvák)' = $false; 'Nastavení|Vždy navrchu' = $true
+    'Připomínky|Pitný režim (každou hodinu)' = $true; 'Připomínky|Protažení (každé 2 hodiny)' = $true
+    'Připomínky|Pomodoro (25 min práce, 5 min pauza)' = $true; 'Pojď za myší' = $false
 }
 $state.RandomBehavior = $false
 Update-MenuState -Items $menuItems -Tray $false

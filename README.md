@@ -44,8 +44,8 @@ Ovládání (Controls):
 | Pravé tlačítko na kachně (Right click) | Menu: Pauza, Skrýt kachnu, Skrýt na…, Nakrmit rohlíkem, Pojď za myší, Rychlost chůze, Rychlost hlášek, Úsporný režim, Připomínky, Nastavení, Ukončit. (Menu: Pause, Hide duck, Hide for…, Feed a bread roll, Follow the mouse, Walking speed, Phrase speed, Power saving, Reminders, Settings, Exit.) |
 | Ikona vedle hodin (Tray icon) | Stejné menu + „Přivolat kachnu k myši“, dvojklik také přivolá kachnu. Tady se skrytá kachna zase zobrazí („Zobrazit kachnu“). Skrytá kachna stojí, mlčí a nezatěžuje počítač. (Same menu + "Summon duck to mouse", double-click summons it too. A hidden duck is shown again here ("Show duck"). While hidden, the duck stands still, stays quiet and uses no CPU.) |
 
-V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu.
-(Random behaviour, walking across monitors, seasonal costumes, quiet mode (no bubbles), sound (quack), always on top.)
+V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, zapnuté kachní hlášky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu.
+(Random behaviour, walking across monitors, seasonal costumes, duck phrases on, quiet mode (no bubbles), sound (quack), always on top.)
 
 Novinky ve v2 (What's new in v2):
 
@@ -54,7 +54,7 @@ Novinky ve v2 (What's new in v2):
 - plynulý pohyb, bublina je vždy u hlavy, přizpůsobí se délce textu a po chvíli zmizí (smooth movement, the bubble stays at the head, fits the text and disappears after a while),
 - hlášky se neopakují hned po sobě, kachna se občas sama zastaví, otočí nebo změní tempo (no phrase twice in a row, random stops, turns and pace changes),
 - hlášky podle denní doby, svátků, stavu baterie a ušlé vzdálenosti (phrases depending on the time of day, holidays, battery and the distance walked),
-- připomínky: pitný režim, protažení, Pomodoro (reminders: drink water, stretch, Pomodoro),
+- připomínky: pitný režim, protažení, Pomodoro – po startu zapnuté (reminders: drink water, stretch, Pomodoro – on by default),
 - krmení rohlíkem, „Pojď za myší“, poskok, sezónní převleky (čepice v prosinci, brýle v létě), volitelný zvuk (feeding, follow the mouse, hop, seasonal costumes, optional sound),
 - šetří počítač: pohyb řídí animace WPF s omezeným počtem snímků, při zamčení PC se schová, po 10 minutách bez pohybu myši usne, na baterii přejde do úsporného režimu (saves resources: movement driven by frame-limited WPF animations, hides when the PC is locked, falls asleep after 10 minutes without mouse movement, power saving on battery),
 - po změně rozlišení nebo odpojení monitoru kachna nezmizí mimo obrazovku (the duck stays visible after a resolution change or when a monitor is disconnected).
