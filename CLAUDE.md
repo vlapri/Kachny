@@ -55,7 +55,7 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky → XAML (kachn
   - Po změně rychlosti, směru, plochy nebo úsporného režimu se chůze spustí znovu z aktuální polohy (`Start-Walk`).
   - Uspání PC (`Invoke-PowerModeChange Suspend`) pohyb zastaví, jinak by animace po probuzení dohnala dobu spánku.
 - **Tep** `$heartTimer` (`Invoke-Heartbeat`, 1 s; „Pojď za myší“ 0,25 s; spící kachna 2 s): nečinnost a spánek, schování bubliny,
-  napájení a převlek (1× za minutu), pojistná kontrola monitoru (`AreaCheckSec` = 5 s), připomínky, jídlo, odpočinek,
+  napájení a převlek (1× za minutu), pojistná kontrola monitoru (`AreaCheckSec` = 5 s), připomínky (výchozí zapnuté podle `RemindersOn`, čas počítá `Initialize-Reminder` v `Loaded`), jídlo, odpočinek,
   náhodné chování, sledování kurzoru. Jiný „snímkový“ časovač není – PowerShell běží ~1× za sekundu.
 - **Ostatní časovače:** `$speechTimer` (hlášky; v pauze `ComplaintIntervalSec` = 60 s a jen stížnosti, jinak `PhraseSpeeds`,
   v úsporném režimu 2× déle; interval vždy nastavuje `Restart-SpeechTimer`), `$clickTimer` (klepnutí se vyhodnotí až po době
@@ -74,7 +74,7 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky → XAML (kachn
   ≤ `ClickTolerance` = klepnutí (pauza se přepne až po `DoubleClickTime`, `Invoke-Click`), jinak `Start-Fall` na monitoru pod
   kurzorem. Dvojklik (`ClickCount` 2) = `Start-Hop` a zrušení čekajícího klepnutí. Najetí na bublinu → `Hide-BubbleForHover`.
 - **Bublina:** `Show-Speech` (po `BubbleSec` zmizí, `-Sticky` spánek, `-Reminder` modrá a déle), `Show-Phrase` = náhodná hláška +
-  restart časovače hlášek. Tichý režim: žádné bubliny, časovač hlášek stojí. Ocásek má barvu bubliny (binding v XAML).
+  restart časovače hlášek. Tichý režim: žádné bubliny, časovač hlášek stojí. Vypnuté „kachní hlášky“ (`Set-PhrasesEnabled`): časovač hlášek stojí, reakce a připomínky zůstávají. Ocásek má barvu bubliny (binding v XAML).
   Hlášky podle situace (`Get-SituationKey`, `Get-SituationPhrase`: denní doba, svátky vč. Velikonoc, baterie, ušlá vzdálenost,
   doba běhu) tvoří asi čtvrtinu hlášek, pokud nějaké platí.
 - **Animace těla:** storyboardy `$legs` (nohy přes `TranslateTransform.X`, ne `Canvas.Left` – nepřepočítává se rozvržení) a `$glow`

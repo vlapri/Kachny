@@ -83,6 +83,7 @@ $config = @{
     RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
+    Phrases              = $true      # kachní hlášky: sama od sebe mluví (při chůzi i stížnosti v pauze)
     Sound                = $false     # kvák při klepnutí, poskoku, jídle a připomínce
     Topmost              = $true      # kachna vždy navrchu
     Fps                  = @{ Legs = 24; Glow = 10; WalkMin = 8; WalkMax = 30; Fall = 60 }  # snímky za sekundu (WPF jinak kreslí ~60x/s)
@@ -92,6 +93,7 @@ $config = @{
     DefaultEco           = 'Vypnutý'
     HideChoices          = [ordered]@{ '15 minut' = 15; '30 minut' = 30; '1 hodinu' = 60; '2 hodiny' = 120 }
     Reminders            = [ordered]@{ Drink = 60; Stretch = 120 }   # připomínky: po kolika minutách
+    RemindersOn          = @{ Drink = $true; Stretch = $true; Pomodoro = $true }   # které připomínky jsou po startu zapnuté
     PomodoroMin          = @{ Work = 25; Break = 5 }
     EatSec               = 2          # jak dlouho kachna jí rohlík
     CrumbSize            = @{ Width = 40; Height = 24 }  # okno s rohlíkem (DIP, stejně jako v $crumbXaml)
@@ -1221,12 +1223,12 @@ function Update-Bubble {
 
 function Restart-SpeechTimer {
     # Nová hláška má zůstat vidět celý interval: v pauze minutu (stížnosti), jinak podle rychlosti hlášek
-    # (v úsporném režimu 2x delší). Skrytá, spící nebo tichá kachna mlčí.
+    # (v úsporném režimu 2x delší). Skrytá, spící nebo tichá kachna a kachna s vypnutými hláškami mlčí.
     $speechTimer.Stop()
     $seconds = if ($state.Paused) { $config.ComplaintIntervalSec } else { $config.PhraseSpeeds[$state.PhraseSpeedName] }
     if (-not $state.Paused -and $state.EcoActive) { $seconds *= $config.EcoPhraseFactor }
     $speechTimer.Interval = [TimeSpan]::FromSeconds($seconds)
-    if (-not ($state.Hidden -or $state.Sleeping -or $state.Quiet)) { $speechTimer.Start() }
+    if (-not ($state.Hidden -or $state.Sleeping -or $state.Quiet -or -not $state.Phrases)) { $speechTimer.Start() }
 }
 
 function Invoke-SpeechTick {
@@ -1542,6 +1544,14 @@ function Set-Reminder {
     $state.ReminderDue[$Key] = $now + $config.Reminders[$Key] * 60
 }
 
+function Initialize-Reminder {
+    # Po startu: zapnuté připomínky se počítají od teď (Pomodoro začíná prací, bez úvodní bubliny).
+    $now = $clock.Elapsed.TotalSeconds
+    foreach ($key in @($config.Reminders.Keys)) { $state.ReminderDue[$key] = $now + $config.Reminders[$key] * 60 }
+    $state.PomodoroPhase = 'Work'
+    $state.PomodoroDue = $now + $config.PomodoroMin.Work * 60
+}
+
 function Invoke-Reminder {
     # Připomínky (pitný režim, protažení, Pomodoro). Ve skrytu se nekontrolují: zmeškaná připomínka
     # se ozve jednou po zobrazení a další se počítá od té chvíle. Spící kachnu připomínka probudí.
@@ -1659,6 +1669,14 @@ function Set-Quiet {
     Restart-SpeechTimer
 }
 
+function Set-PhrasesEnabled {
+    # Kachní hlášky: vypnuté = kachna sama od sebe nemluví (časovač hlášek stojí). Reakce (přistání,
+    # jídlo, probuzení…), spánek a připomínky v bublině zůstávají.
+    param([bool]$Enabled)
+    $state.Phrases = $Enabled
+    Restart-SpeechTimer
+}
+
 function Invoke-Quack {
     if (-not $state.Sound) { return }
     try { Start-Sound } catch { Write-Verbose "Kachna: zvuk nejde přehrát: $_" }
@@ -1767,6 +1785,7 @@ $menuSpec = @(
             @{ Text = 'Náhodné chování'; Check = { $state.RandomBehavior }; Action = { Set-RandomBehavior (-not $state.RandomBehavior) } }
             @{ Text = 'Chůze přes monitory'; Check = { $state.CrossMonitors }; Action = { Set-MonitorCrossing (-not $state.CrossMonitors) } }
             @{ Text = 'Sezónní převleky'; Check = { $state.Costumes }; Action = { Set-CostumeEnabled (-not $state.Costumes) } }
+            @{ Text = 'Zapnuté kachní hlášky'; Check = { $state.Phrases }; Action = { Set-PhrasesEnabled (-not $state.Phrases) } }
             @{ Text = 'Tichý režim (bez bublin)'; Check = { $state.Quiet }; Action = { Set-Quiet (-not $state.Quiet) } }
             @{ Text = 'Zvuk (kvák)'; Check = { $state.Sound }; Action = { Set-Sound (-not $state.Sound) } }
             @{ Text = 'Vždy navrchu'; Check = { $state.Topmost }; Action = { Set-Topmost (-not $state.Topmost) } }
@@ -1936,6 +1955,7 @@ $state = @{
     Sound           = $config.Sound
     Topmost         = $config.Topmost
     Quiet           = $false
+    Phrases         = $config.Phrases
     Follow          = $false
     EcoName         = $config.DefaultEco
     EcoMode         = $config.EcoModes[$config.DefaultEco]
@@ -1958,9 +1978,9 @@ $state = @{
     EatUntil        = 0.0
     Distance        = 0.0         # dnes ušlá vzdálenost (DIP)
     DistanceDate    = [datetime]::MinValue
-    Reminders       = @{ Drink = $false; Stretch = $false }
-    ReminderDue     = @{ Drink = 0.0; Stretch = 0.0 }
-    Pomodoro        = $true
+    Reminders       = @{ Drink = $config.RemindersOn.Drink; Stretch = $config.RemindersOn.Stretch }
+    ReminderDue     = @{ Drink = 0.0; Stretch = 0.0 }   # nastaví Initialize-Reminder
+    Pomodoro        = $config.RemindersOn.Pomodoro
     PomodoroPhase   = 'Work'
     PomodoroDue     = 0.0
     DoubleClickSec  = 0.5
@@ -2079,6 +2099,7 @@ $window.Add_Loaded({
     Update-Speed
     Update-Power
     Update-Costume
+    Initialize-Reminder
     try { Register-SystemEvent } catch { Write-Warning "Kachna: události Windows nejsou k dispozici, stačí pojistné kontroly: $_" }
     Show-Speech (Get-RandomPhrase $duckPhrases '')
     Update-Animation
