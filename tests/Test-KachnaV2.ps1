@@ -244,13 +244,14 @@ Assert-True ([double]$byName['SpeechBubble'].Width -le $winW - 10) 'bublina se v
 
 # Tvary kachny jsou stejné jako ve v1
 $pathsV2 = @{}; $pathsV1 = @{}
-foreach ($p in $xaml.SelectNodes("//*[local-name()='Path'][@Name]")) { $pathsV2[$p.GetAttribute('Name')] = $p.SelectSingleNode(".//*[local-name()='PathGeometry']").GetAttribute('Figures') }
+foreach ($p in $byName['CharDuck'].SelectNodes(".//*[local-name()='Path'][@Name]")) { $pathsV2[$p.GetAttribute('Name')] = $p.SelectSingleNode(".//*[local-name()='PathGeometry']").GetAttribute('Figures') }
 foreach ($p in $xamlV1.SelectNodes("//*[local-name()='Path'][@Name]")) { $pathsV1[$p.GetAttribute('Name')] = $p.SelectSingleNode(".//*[local-name()='PathGeometry']").GetAttribute('Figures') }
 foreach ($n in 'path2', 'path4', 'path6', 'path10') { Assert-True ($pathsV2[$n] -eq $pathsV1[$n]) "tvar $n je stejný jako ve v1" }
 $xamlAnimations = $xaml.SelectNodes("//*[local-name()='EventTrigger' or local-name()='Storyboard']")
 Assert-True ($xamlAnimations.Count -eq 0) 'XAML nemá žádné animace (nohy i tělo řídí skript, aby šly zastavit v pauze, ve spánku a ve skrytu)'
-foreach ($n in 'path2', 'path4') {
-    $tt = $byName[$n].SelectSingleNode("./*[local-name()='Path.RenderTransform']/*[local-name()='TranslateTransform']")
+$characters = Get-AssignedValue $v2.Ast 'characters'
+foreach ($n in @($characters.Values | ForEach-Object { $_.Legs })) {
+    $tt = $byName[$n].SelectSingleNode("./*[local-name()='Path.RenderTransform' or local-name()='Canvas.RenderTransform']/*[local-name()='TranslateTransform']")
     Assert-True ($null -ne $tt) "noha $n se posouvá přes TranslateTransform (animace bez přepočtu rozvržení)"
 }
 Assert-True ($v2Text.Contains('RenderTransformProperty') -and -not $v2Text.Contains('Canvas]::LeftProperty')) 'storyboard nohou animuje RenderTransform, ne Canvas.Left'
@@ -263,7 +264,7 @@ foreach ($n in $pathsV2.Keys) {
     if ($n -eq 'path4') { $b.Left -= 35 }
     $bounds += $b
 }
-foreach ($e in $xaml.SelectNodes("//*[local-name()='Ellipse'][@Name]")) {
+foreach ($e in $byName['CharDuck'].SelectNodes(".//*[local-name()='Ellipse'][@Name]")) {
     $l = [double]$e.GetAttribute('Canvas.Left'); $t = [double]$e.GetAttribute('Canvas.Top')
     $bounds += [pscustomobject]@{ Left = $l; Top = $t; Right = $l + [double]$e.Width; Bottom = $t + [double]$e.Height }
 }
@@ -296,23 +297,60 @@ $bubbleLimitY = (ConvertTo-LayerPoint 0 $bubbleBottom)[1]          # ... v souř
 $tailTri = [double[][]]@($tailPoints | ForEach-Object { , [double[]](ConvertTo-LayerPoint ($bubbleLeft + $_[0]) ($bubbleBottom + $_[1])) })
 $winTopLeft = ConvertTo-LayerPoint $winW 0                           # okno v souřadnicích kresby (x je překlopené)
 $winBottomRight = ConvertTo-LayerPoint 0 $winH
-foreach ($costume in 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') {
-    $canvas = $byName[$costume]
-    $shapes = @($canvas.SelectNodes("./*[local-name()='Path' or local-name()='Ellipse']") | ForEach-Object { Get-ShapePoints $_ })
-    $minY = [double]::MaxValue; $minTail = [double]::MaxValue; $inWindow = $true
+function Get-ShapeCheck {
+    # Tvary prvku (i vnořené) posunuté o Dx, Dy: nejvyšší bod, odstup od ocásku bubliny, celé v okně, meze kresby.
+    param($Element, [double]$Dx = 0, [double]$Dy = 0, [double]$LegShift = 0)
+    $shapes = @($Element.SelectNodes(".//*[local-name()='Path' or local-name()='Ellipse']") | ForEach-Object { Get-ShapePoints $_ })
+    $r = [pscustomobject]@{ Count = $shapes.Count; MinY = [double]::MaxValue; MinTail = [double]::MaxValue; InWindow = $true
+        Left = [double]::MaxValue; Right = [double]::MinValue; Bottom = [double]::MinValue }
     foreach ($s in $shapes) {
-        foreach ($p in $s.Points) {
-            $minY = [math]::Min($minY, $p[1] - $s.Stroke)
-            $minTail = [math]::Min($minTail, (Get-TriangleDistance $p $tailTri) - $s.Stroke)
-            if ($p[0] - $s.Stroke -lt $winTopLeft[0] -or $p[0] + $s.Stroke -gt $winBottomRight[0] -or $p[1] - $s.Stroke -lt $winTopLeft[1]) { $inWindow = $false }
+        foreach ($p0 in $s.Points) {
+            foreach ($shift in @(-$LegShift, $LegShift)) {
+                $p = @(($p0[0] + $Dx + $shift), ($p0[1] + $Dy))
+                $r.MinY = [math]::Min($r.MinY, $p[1] - $s.Stroke)
+                $r.Bottom = [math]::Max($r.Bottom, $p[1] + $s.Stroke)
+                $r.Left = [math]::Min($r.Left, $p[0] - $s.Stroke)
+                $r.Right = [math]::Max($r.Right, $p[0] + $s.Stroke)
+                $r.MinTail = [math]::Min($r.MinTail, (Get-TriangleDistance $p $tailTri) - $s.Stroke)
+                if ($p[0] - $s.Stroke -lt $winTopLeft[0] -or $p[0] + $s.Stroke -gt $winBottomRight[0] -or $p[1] - $s.Stroke -lt $winTopLeft[1]) { $r.InWindow = $false }
+            }
         }
     }
-    Assert-True ($canvas.Visibility -eq 'Collapsed' -and $shapes.Count -ge 3) "$($costume): skrytý, dokud ho nezapne Update-Costume"
-    Assert-True ($minY -ge $bubbleLimitY) ("$($costume): nesahá do bubliny (nejvýš y {0:N1}, bublina končí na {1:N1})" -f $minY, $bubbleLimitY)
-    Assert-True ($minTail -gt 0) ("$($costume): nezasahuje do ocásku bubliny (odstup {0:N1})" -f $minTail)
-    Assert-True $inWindow "$($costume): celý v okně"
+    return $r
 }
-Assert-True ($byName['SleepEye'].Visibility -eq 'Hidden') 'zavřené oko je vidět jen ve spánku'
+
+# Postavy: kresba se vejde do ořezu (jen nahoru smí přesahovat do volného místa pod bublinou, třeba hřebínek)
+$charElements = @($layer.SelectNodes("./*[local-name()='Canvas']") | Where-Object { $_.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml') -like 'Char*' })
+Assert-True ($charElements.Count -eq $characters.Count) "XAML má kresbu pro každou postavu ($($characters.Keys -join ', '))"
+foreach ($name in $characters.Keys) {
+    $c = $characters[$name]
+    $element = $byName[$c.Element]
+    $hidden = if ($name -eq 'Kachna') { '' } else { 'Collapsed' }
+    Assert-True ($null -ne $element -and "$($element.Visibility)" -eq $hidden) "$($name): kresba $($c.Element), vidět je po startu jen kachna"
+    $parts = @($c.Legs + $c.Body + $c.Eyes + $c.SleepEye + $c.Hats)
+    $missing = @($parts | Where-Object { $usedNames -notcontains $_ -or $null -eq $byName[$_] -or $null -eq $element.SelectSingleNode(".//*[@*[local-name()='Name']='$_']") })
+    Assert-True ($missing.Count -eq 0 -and $usedNames -contains $c.Element) "$($name): části ($($parts -join ', ')) jsou v její kresbě a skript je hledá (FindName)"
+    Assert-True ($c.Legs.Count -eq 2 -and $c.LegShift -gt 0 -and $byName[$c.Body].LocalName -eq 'Path' -and $byName[$c.Body].Fill -match '^#[0-9A-F]{8}$' -and $c.Glow -match '^#[0-9A-F]{8}$') "$($name): dvě nohy a tělo s barvou (animace)"
+    Assert-True ($byName[$c.SleepEye].Visibility -eq 'Hidden') "$($name): zavřené oko je vidět jen ve spánku"
+    $legShapes = @($c.Legs | ForEach-Object { Get-ShapeCheck $byName[$_] -LegShift $c.LegShift })
+    $all = @(Get-ShapeCheck $element) + $legShapes
+    $l = ($all | Measure-Object Left -Minimum).Minimum; $r = ($all | Measure-Object Right -Maximum).Maximum
+    $b = ($all | Measure-Object Bottom -Maximum).Maximum
+    Assert-True ($l -ge $cropL -and $r -le $cropR -and $b -le $cropB) ("$($name): ořez ji neusekne do stran ani dole i s nohama (x {0:N1}..{1:N1}, dole {2:N1})" -f $l, $r, $b)
+    $top = Get-ShapeCheck $element
+    Assert-True ($top.MinY -ge $bubbleLimitY -and $top.MinTail -gt 0 -and $top.InWindow) ("$($name): nesahá do bubliny ani do ocásku a je celá v okně (nejvýš y {0:N1})" -f $top.MinY)
+    Assert-True ($c.BeakOffset -gt 0 -and $c.BeakOffset -lt $winW) "$($name): zobák / pusa pro krmení je v okně ($($c.BeakOffset) DIP)"
+    # Převleky na její hlavě (posun CostumeShift)
+    foreach ($costume in $c.Costumes) {
+        $s = Get-ShapeCheck $byName["Costume$costume"] -Dx $c.CostumeShift[0] -Dy $c.CostumeShift[1]
+        Assert-True ($s.MinY -ge $bubbleLimitY -and $s.MinTail -gt 0 -and $s.InWindow) ("$($name) + $($costume): převlek nesahá do bubliny ani do ocásku a je celý v okně (nejvýš y {0:N1}, odstup {1:N1})" -f $s.MinY, $s.MinTail)
+    }
+}
+Assert-True ($byName['CostumeShift'].LocalName -eq 'TranslateTransform' -and $byName['Costumes'].SelectNodes("./*[local-name()='Canvas']").Count -eq 3) 'převleky se posouvají společně (CostumeShift)'
+foreach ($costume in 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') {
+    $s = Get-ShapeCheck $byName[$costume]
+    Assert-True ($byName[$costume].Visibility -eq 'Collapsed' -and $s.Count -ge 3) "$($costume): skrytý, dokud ho nezapne Update-Costume"
+}
 
 # Rohlík pro krmení
 [xml]$crumbXaml = Get-XamlText $v2.Ast 'Rohlík'
@@ -350,6 +388,7 @@ $lists = [ordered]@{
     complaintPhrases = 'stížnosti'; resumePhrases = 'po pauze'; dropPhrases = 'po přistání'; restPhrases = 'odpočinek'
     showPhrases = 'po zobrazení'; welcomePhrases = 'po odemčení'; sleepPhrases = 'usínání'; wakePhrases = 'probuzení'
     hopPhrases = 'poskok'; crossPhrases = 'nový monitor'; foodPhrases = 'rohlík'; eatPhrases = 'jídlo'; followPhrases = 'za myší'
+    helloPhrases = 'po přepnutí postavy'
 }
 $allPhrases = New-Object System.Collections.Generic.List[string]
 $allPhrases.AddRange([string[]]$duckPhrases)
@@ -371,6 +410,45 @@ foreach ($k in $situationPhrases.Keys) {
     $allPhrases.AddRange([string[]]@($situationPhrases[$k] | ForEach-Object { $_ -f '9999,9 km' }))
 }
 Assert-True (@($situationPhrases.Battery + $situationPhrases.Distance + $situationPhrases.Uptime | Where-Object { $_ -notmatch '\{0\}' }).Count -eq 0) 'hlášky o baterii, vzdálenosti a době mají místo pro číslo {0}'
+# Hlášky dalších postav: co postava nemá, vezme od kachny (seznamy, u připomínek a situací po klíčích)
+$characterPhrases = Get-AssignedValue $v2.Ast 'characterPhrases'
+$commonPhrases = Get-AssignedValue $v2.Ast 'commonPhrases'
+$characters = Get-AssignedValue $v2.Ast 'characters'
+Assert-True (@($characterPhrases.Keys | Where-Object { -not $characters.Contains($_) }).Count -eq 0) 'vlastní hlášky mají jen existující postavy'
+Assert-True ((@($commonPhrases.Main) -join '|') -eq ($duckPhrases -join '|') -and $commonPhrases.Count -eq $lists.Count + 3) 'kachní hlášky jsou výchozí pro všechny seznamy'
+foreach ($name in $characterPhrases.Keys) {
+    $own = $characterPhrases[$name]
+    $unknown = @($own.Keys | Where-Object { -not $commonPhrases.ContainsKey($_) })
+    Assert-True ($unknown.Count -eq 0) "$($name): hlášky jen pro známé seznamy $($unknown -join ', ')"
+    $texts = New-Object System.Collections.Generic.List[string]
+    $badList = @()
+    foreach ($list in $commonPhrases.Keys) {
+        if ($list -in 'Reminder', 'Situation') {
+            foreach ($key in $commonPhrases[$list].Keys) {
+                $value = if ($own.ContainsKey($list) -and $own[$list].ContainsKey($key)) { $own[$list][$key] } else { $commonPhrases[$list][$key] }
+                if (@($value).Count -lt 1) { $badList += "$list.$key" }
+                if ($key -in 'Battery', 'Distance', 'Uptime' -and @($value | Where-Object { $_ -notmatch '\{0\}' }).Count -gt 0) { $badList += "$list.$key {0}" }
+                $texts.AddRange([string[]]@($value | ForEach-Object { $_ -f '9999,9 km' }))
+            }
+            continue
+        }
+        $value = if ($own.ContainsKey($list)) { $own[$list] } else { $commonPhrases[$list] }
+        if (@($value).Count -lt 3 -or @($value | Sort-Object -Unique).Count -ne @($value).Count) { $badList += $list }
+        $texts.AddRange([string[]]$value)
+    }
+    Assert-True ($badList.Count -eq 0) "$($name): každý seznam má aspoň 3 hlášky bez duplicit (připomínky a situace aspoň 1) $($badList -join ', ')"
+    Assert-True ($own.Main.Count -ge 25 -and $own.Complaint.Count -ge 10) "$($name): má dost vlastních hlášek ($($own.Main.Count) běžných, $($own.Complaint.Count) stížností)"
+    $duckish = @($texts | Where-Object { $_ -match '(?i)kv[aá]k|kachn|rybn' })
+    $duckish | ForEach-Object { Write-Host "          kachní: $_" -ForegroundColor Red }
+    Assert-True ($duckish.Count -eq 0) "$($name): nemluví jako kachna (kvák, kachna, rybník)"
+    $allPhrases.AddRange($texts)
+}
+$feminine = @(foreach ($list in $characterPhrases['Skřítek'].Values) { foreach ($v in $(if ($list -is [hashtable]) { $list.Values } else { , $list })) { $v } }) +
+    @(foreach ($list in $commonPhrases.Keys) { if (-not $characterPhrases['Skřítek'].ContainsKey($list) -and $list -notin 'Reminder', 'Situation') { $commonPhrases[$list] } })
+$feminine = @($feminine | Where-Object { $_ -match '(?i)\b(byla|šla|ušla|myslela|nudila|spala|hlídala|zapomněla|nechala|chyběla|skončila|nebyla|jistá|ráda|sama)\b' })
+$feminine | ForEach-Object { Write-Host "          v ženském rodě: $_" -ForegroundColor Red }
+Assert-True ($feminine.Count -eq 0) 'skřítek mluví v mužském rodě'
+
 # odhad: ~7,2 DIP na znak při FontSize 14, text široký 206 DIP; +20 znaků rezerva na dlouhé uživatelské jméno
 $tooLong = @($allPhrases | Where-Object { [math]::Ceiling(($_.Length + 20) * 7.2 / 206) -gt 5 })
 $tooLong | ForEach-Object { Write-Host "          příliš dlouhá: $_" -ForegroundColor Red }
@@ -395,9 +473,8 @@ $ui = @{
     RootFlip     = [pscustomobject]@{ ScaleX = 1 }
     TextFlip     = [pscustomobject]@{ ScaleX = 1 }
 }
-foreach ($n in 'circle12', 'circle14') { $ui[$n] = [pscustomobject]@{ Visibility = 'Visible' } }
-$ui.SleepEye = [pscustomobject]@{ Visibility = 'Hidden' }
-foreach ($n in 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') { $ui[$n] = [pscustomobject]@{ Visibility = 'Collapsed' } }
+foreach ($n in $usedNames) { if (-not $ui.ContainsKey($n)) { $ui[$n] = [pscustomobject]@{ Visibility = 'Visible' } } }
+$ui.CostumeShift = [pscustomobject]@{ X = 0.0; Y = 0.0 }
 $bubbleBrushes = @{ Normal = 'bílá'; Reminder = 'modrá' }
 $clock = [pscustomobject]@{ T = 0.0 }
 $clock | Add-Member -MemberType ScriptProperty -Name Elapsed -Value { [TimeSpan]::FromSeconds($this.T) }
@@ -427,8 +504,9 @@ $speechTimer = New-TimerMock { Invoke-SpeechTick }
 $clickTimer = New-TimerMock { Invoke-Click }
 $hideTimer = New-TimerMock { Invoke-HideTimer }
 $timers = @($heartTimer, $speechTimer, $clickTimer, $hideTimer)
-$legs = New-StoryboardMock
-$glow = New-StoryboardMock
+$characters = Get-AssignedValue $v2.Ast 'characters'
+$characterAnimations = @{}
+foreach ($n in $characters.Keys) { $characterAnimations[$n] = @{ Legs = (New-StoryboardMock); Glow = (New-StoryboardMock) } }
 
 # Windows: monitory, myš, napájení, čas, zvuk, rohlík (stav, který by vrátily WinForms Screen, Cursor, PowerStatus ...)
 $sim = @{
@@ -535,9 +613,10 @@ function Reset-Duck {
     $clock.T = 0.0   # časovače i animace se nastavují znovu, hodiny můžou začít od nuly (doba běhu kachny)
     $sim.Anims.Clear(); $sim.AnimLog.Clear()
     foreach ($timer in $timers) { $timer.Running = $false; $timer.Ticks = 0 }
-    foreach ($sb in $legs, $glow) { $sb.Running = $false; $sb.Paused = $false; $sb.Begins = 0 }
+    foreach ($sb in @($characterAnimations.Values | ForEach-Object { $_.Legs; $_.Glow })) { $sb.Running = $false; $sb.Paused = $false; $sb.Begins = 0 }
     $script:state = Get-AssignedValue $v2.Ast 'state'
     $state.RandomBehavior = $false
+    Set-Character 'Kachna'
     $state.AnimReady = $true
     $sim.WindowArea = $Area; $sim.Layout = $null; $sim.Scale = $Scale; $sim.Cursor = '0,0'; $sim.Active = $true; $sim.Crumb = $null
     $sim.Power = [pscustomobject]@{ OnBattery = $false; Percent = 100 }
@@ -560,7 +639,7 @@ function Reset-Duck {
     Update-Power
     Update-Costume
     Initialize-Reminder
-    Show-Speech (Get-RandomPhrase $duckPhrases '')
+    Show-Speech (Get-RandomPhrase (Get-PhraseList 'Main') '')
     Update-Animation
     Restart-HeartTimer
     Restart-SpeechTimer
@@ -711,17 +790,17 @@ Write-Section 'Šetření procesorem: snímky, tep, pauza'
 Reset-Duck $main
 $walk = $sim.Anims['Left']
 Assert-True ($null -ne $walk -and $walk.Ease -eq 'Linear' -and $walk.To -eq $main.Right - $window.Width -and [math]::Abs($walk.Seconds - ($walk.To - $walk.From) / 15) -lt 1e-9) ("chůze je jedna animace WPF až k okraji ({0:N0} s), ne krok po kroku" -f $walk.Seconds)
-Assert-True ($legs.Running -and $legs.Fps -eq $config.Fps.Legs -and $glow.Running -and $glow.Fps -eq $config.Fps.Glow) ("nohy {0} snímků/s, tělo {1} snímků/s" -f $legs.Fps, $glow.Fps)
+Assert-True ($state.Legs.Running -and $state.Legs.Fps -eq $config.Fps.Legs -and $state.Glow.Running -and $state.Glow.Fps -eq $config.Fps.Glow) ("nohy {0} snímků/s, tělo {1} snímků/s" -f $state.Legs.Fps, $state.Glow.Fps)
 Assert-True ($heartTimer.Running -and $heartTimer.Interval.TotalSeconds -eq 1) 'PowerShell se při chůzi probouzí jen 1x za sekundu (tep)'
 [void](Invoke-Sim -Seconds 60)
 Assert-True ($sim.AnimLog.Count -le 2 -and $heartTimer.Ticks -le 61) ("za minutu chůze: {0} animace, {1} tepů (dřív ~2000 tiků časovače pohybu)" -f $sim.AnimLog.Count, $heartTimer.Ticks)
-Assert-True (-not $legs.Paused -and -not $glow.Paused) 'storyboardy se nikdy nepozastavují (Pause), jen zastavují (Stop)'
+Assert-True (-not $state.Legs.Paused -and -not $state.Glow.Paused) 'storyboardy se nikdy nepozastavují (Pause), jen zastavují (Stop)'
 Set-Paused $true
 Assert-True ($sim.Anims.Count -eq 0 -and $state.Motion -eq 'None') 'pauza: okno se nehýbe, žádná animace polohy'
-Assert-True (-not $legs.Running -and -not $legs.Paused -and -not $glow.Running) 'pauza: nohy i tělo zastavené přes Stop (WPF netiká)'
+Assert-True (-not $state.Legs.Running -and -not $state.Legs.Paused -and -not $state.Glow.Running) 'pauza: nohy i tělo zastavené přes Stop (WPF netiká)'
 Assert-True ($heartTimer.Interval.TotalSeconds -eq 1 -and -not $clickTimer.Running) 'pauza: zůstává jen tep 1x za sekundu a hlášky jednou za minutu'
 Set-Paused $false
-Assert-True ($legs.Running -and [math]::Abs($legs.Ratio - 1.0) -lt 0.001 -and $glow.Running -and $null -ne $sim.Anims['Left']) 'po pauze: nohy kmitají jako ve v1, tělo mění barvu, kachna jde'
+Assert-True ($state.Legs.Running -and [math]::Abs($state.Legs.Ratio - 1.0) -lt 0.001 -and $state.Glow.Running -and $null -ne $sim.Anims['Left']) 'po pauze: nohy kmitají jako ve v1, tělo mění barvu, kachna jde'
 $state.SpeedFactor = 1.0
 $state.RandomBehavior = $true
 $state.NextDecision = $clock.T
@@ -732,23 +811,23 @@ for ($i = 0; $i -lt 40 -and -not $rested; $i++) {
     Step-Sim 1.0
     if ($state.Resting) { $rested = $true }
 }
-Assert-True ($rested -and -not $legs.Running -and $sim.Anims.Count -eq 0 -and $glow.Running) 'odpočinek: kachna stojí a nohy se zastaví, tělo dál mění barvu'
+Assert-True ($rested -and -not $state.Legs.Running -and $sim.Anims.Count -eq 0 -and $state.Glow.Running) 'odpočinek: kachna stojí a nohy se zastaví, tělo dál mění barvu'
 $state.RandomBehavior = $false
 
 Reset-Duck $main
 Set-EcoMode 'Vždy'
 $walk = $sim.Anims['Left']
-Assert-True ($state.EcoActive -and $legs.Fps -eq $config.EcoFps.Legs -and -not $glow.Running -and $walk.Fps -le $config.EcoFps.WalkMax) ("úsporný režim: nohy {0} snímků/s, tělo stojí, chůze {1} snímků/s" -f $legs.Fps, $walk.Fps)
+Assert-True ($state.EcoActive -and $state.Legs.Fps -eq $config.EcoFps.Legs -and -not $state.Glow.Running -and $walk.Fps -le $config.EcoFps.WalkMax) ("úsporný režim: nohy {0} snímků/s, tělo stojí, chůze {1} snímků/s" -f $state.Legs.Fps, $walk.Fps)
 Assert-True ($speechTimer.Interval.TotalSeconds -eq $config.PhraseSpeeds[$config.DefaultPhraseSpeed] * $config.EcoPhraseFactor) "úsporný režim: hlášky každých $($speechTimer.Interval.TotalSeconds) s"
 Set-EcoMode 'Vypnutý'
-Assert-True (-not $state.EcoActive -and $legs.Fps -eq $config.Fps.Legs -and $glow.Running -and $sim.Anims['Left'].Fps -eq 15) 'úsporný režim vypnutý: zpět plné snímky'
+Assert-True (-not $state.EcoActive -and $state.Legs.Fps -eq $config.Fps.Legs -and $state.Glow.Running -and $sim.Anims['Left'].Fps -eq 15) 'úsporný režim vypnutý: zpět plné snímky'
 Set-EcoMode 'Na baterii'
 $sim.Power = [pscustomobject]@{ OnBattery = $true; Percent = 60 }
 Update-Power
-Assert-True ($state.EcoActive -and -not $glow.Running) 'na baterii se úsporný režim zapne sám'
+Assert-True ($state.EcoActive -and -not $state.Glow.Running) 'na baterii se úsporný režim zapne sám'
 $sim.Power = [pscustomobject]@{ OnBattery = $false; Percent = 60 }
 Update-Power
-Assert-True (-not $state.EcoActive -and $glow.Running) 'po připojení nabíječky se vypne'
+Assert-True (-not $state.EcoActive -and $state.Glow.Running) 'po připojení nabíječky se vypne'
 $sim.Power = [pscustomobject]@{ OnBattery = $true; Percent = 60 }
 $state.NextPowerCheck = $clock.T
 Step-Sim 1.0
@@ -779,7 +858,7 @@ Assert-True ($ui.SpeechText.Text -in $duckPhrases) 'při chůzi říká běžné
 
 # Klepnutí = DragMove skoro bez pohybu; pauza se přepne až po době dvojkliku
 Start-Drag
-Assert-True ($sim.Anims.Count -eq 0 -and $legs.Ratio -eq 4.0) 'stisk tlačítka: pohyb se zastaví, nohy kmitají rychle'
+Assert-True ($sim.Anims.Count -eq 0 -and $state.Legs.Ratio -eq 4.0) 'stisk tlačítka: pohyb se zastaví, nohy kmitají rychle'
 $window.Left += 2
 Complete-Drag -StartLeft ($window.Left - 2) -StartTop $window.Top
 Assert-True (-not $state.Paused -and $clickTimer.Running -and $window.Left -eq $state.X) 'klepnutí (posun 2 DIP): okno zpět na místo, pauza čeká na případný dvojklik'
@@ -796,7 +875,7 @@ Start-Drag
 Complete-Drag -StartLeft $window.Left -StartTop $window.Top
 Step-Sim 0.2
 $clickTimer.Stop(); Start-Hop        # totéž dělá obsluha MouseLeftButtonDown při ClickCount 2
-Assert-True ($state.Motion -eq 'HopUp' -and $ui.SpeechText.Text -in $hopPhrases -and $legs.Ratio -eq 4.0) "dvojklik: poskok ('$($ui.SpeechText.Text)')"
+Assert-True ($state.Motion -eq 'HopUp' -and $ui.SpeechText.Text -in $hopPhrases -and $state.Legs.Ratio -eq 4.0) "dvojklik: poskok ('$($ui.SpeechText.Text)')"
 $minTop = $window.Top
 for ($i = 0; $i -lt 10; $i++) { Step-Sim 0.05; $minTop = [math]::Min($minTop, $window.Top) }
 Assert-True ([math]::Abs($minTop - ($ground - $config.HopHeight)) -lt 1 -and [math]::Abs($window.Top - $ground) -lt 0.001 -and -not $state.Falling) ("poskok do výšky {0:N0} DIP a zpět na zem za 0,5 s" -f ($ground - $minTop))
@@ -823,7 +902,7 @@ $sim.CursorArea = $right
 Complete-Drag -StartLeft 0 -StartTop 682
 $fall = $sim.Anims['Top']
 $expected = [math]::Sqrt(2 * ($right.Bottom - $window.Height - 100) / $config.Gravity)
-Assert-True ($state.Falling -and $legs.Ratio -eq 4.0 -and $fall.Ease -eq 'EaseIn' -and [math]::Abs($fall.Seconds - $expected) -lt 1e-9) ("po puštění padá volným pádem ({0:N2} s) a nohy kmitají rychle" -f $fall.Seconds)
+Assert-True ($state.Falling -and $state.Legs.Ratio -eq 4.0 -and $fall.Ease -eq 'EaseIn' -and [math]::Abs($fall.Seconds - $expected) -lt 1e-9) ("po puštění padá volným pádem ({0:N2} s) a nohy kmitají rychle" -f $fall.Seconds)
 Assert-True ($fall.Fps -eq $config.Fps.Fall) "pád má $($fall.Fps) snímků/s"
 $fallTime = 0.0
 while ($state.Falling -and $fallTime -lt 5) { Step-Sim 0.05; $fallTime += 0.05 }
@@ -1074,7 +1153,7 @@ Invoke-Menu 'Skrýt kachnu' -Tray
 Assert-True (-not $window.IsVisible -and $state.Hidden) 'skrytí: okno zmizí'
 Assert-True (@($timers | Where-Object Running).Count -eq 0 -and $sim.Anims.Count -eq 0) 'skrytí: žádný časovač ani animace okna neběží'
 # jen pozastavený storyboard nestačí, WPF by dál tikalo ~60x za sekundu
-Assert-True (-not $legs.Running -and -not $glow.Running) 'skrytí: animace nohou i těla jsou zastavené (program jen čeká)'
+Assert-True (-not $state.Legs.Running -and -not $state.Glow.Running) 'skrytí: animace nohou i těla jsou zastavené (program jen čeká)'
 Update-MenuState -Items $trayItems -Tray $true
 Assert-True ($null -ne (Find-MenuItem -Items $trayItems -Path 'Zobrazit kachnu' -Tray)) 'ikona: nabízí Zobrazit kachnu, když je kachna skrytá'
 [void](Invoke-Sim -Seconds 120 -Step 1)
@@ -1084,11 +1163,11 @@ Assert-True ($state.Hidden -and -not $window.IsVisible -and -not $heartTimer.Run
 # v menu u ikony jde nastavení měnit i ve skrytu, kachnu to ale neprobudí
 Set-Speed 'Pomalá'; Set-PhraseSpeed 'Rychlá'; Set-RandomBehavior $true; Switch-Pause; Switch-Pause; Set-EcoMode 'Vždy'; Set-EcoMode 'Na baterii'
 Set-Follow $true; Set-Follow $false; Set-Quiet $true; Set-Quiet $false
-Assert-True (-not $window.IsVisible -and @($timers | Where-Object Running).Count -eq 0 -and $sim.Anims.Count -eq 0 -and -not $legs.Running -and -not $glow.Running) 'změny nastavení ve skrytu kachnu neprobudí'
+Assert-True (-not $window.IsVisible -and @($timers | Where-Object Running).Count -eq 0 -and $sim.Anims.Count -eq 0 -and -not $state.Legs.Running -and -not $state.Glow.Running) 'změny nastavení ve skrytu kachnu neprobudí'
 Set-RandomBehavior $false
 Invoke-Menu 'Zobrazit kachnu' -Tray
 Assert-True ($window.IsVisible -and -not $state.Hidden -and $heartTimer.Running -and $speechTimer.Running) 'zobrazení: okno, tep i hlášky zase běží'
-Assert-True ($legs.Running -and $glow.Running -and $null -ne $sim.Anims['Left']) 'zobrazení: nohy i tělo se hýbou a kachna jde'
+Assert-True ($state.Legs.Running -and $state.Glow.Running -and $null -ne $sim.Anims['Left']) 'zobrazení: nohy i tělo se hýbou a kachna jde'
 Assert-True ($ui.SpeechText.Text -in $showPhrases) "zobrazení: kachna se ozve: '$($ui.SpeechText.Text)'"
 Assert-True ($speechTimer.Interval.TotalSeconds -eq $config.PhraseSpeeds['Rychlá']) 'zobrazení: mluví podle rychlosti hlášek zvolené ve skrytu'
 Assert-True ($window.ShownAt.Left -eq $xHidden -and $state.Direction -eq $dirHidden) 'zobrazení: kachna je tam, kde zmizela, a jde stejným směrem'
@@ -1100,7 +1179,7 @@ Reset-Duck $main
 Set-Paused $true
 Set-Hidden $true
 Set-Hidden $false
-Assert-True ($state.Paused -and -not $legs.Running -and $ui.SpeechText.Text -in $complaintPhrases -and $speechTimer.Interval.TotalSeconds -eq $config.ComplaintIntervalSec -and $sim.Anims.Count -eq 0) 'zapauzovaná kachna po zobrazení dál stojí a stěžuje si jednou za minutu'
+Assert-True ($state.Paused -and -not $state.Legs.Running -and $ui.SpeechText.Text -in $complaintPhrases -and $speechTimer.Interval.TotalSeconds -eq $config.ComplaintIntervalSec -and $sim.Anims.Count -eq 0) 'zapauzovaná kachna po zobrazení dál stojí a stěžuje si jednou za minutu'
 Set-Paused $false
 
 # Monitor odpojený ve skrytu: kachna se nesmí objevit mimo obrazovku
@@ -1124,7 +1203,8 @@ Assert-True ($window.IsVisible -and $heartTimer.Running -and $state.Falling -and
 Assert-True ($ui.SpeechText.Text -eq $textBefore) 'přivolání skryté kachny: během pádu nic neříká'
 [void](Invoke-Sim -Seconds 2)
 Assert-True (-not $state.Falling -and (Test-OnGround $right) -and $ui.SpeechText.Text -in $dropPhrases) 'přivolání skryté kachny: dopadne a promluví'
-Assert-True (@($menuItems | Where-Object { $_.Tag -and $_.Tag.Spec.Text -eq 'Přivolat kachnu k myši' }).Count -eq 0) 'přivolání je jen v menu ikony (kachnu, na kterou jde kliknout, není kam volat)'
+Update-MenuState -Items $menuItems -Tray $false
+Assert-True ($null -eq (Find-MenuItem -Items $menuItems -Path 'Přivolat kachnu k myši')) 'přivolání je jen v menu ikony (kachnu, na kterou jde kliknout, není kam volat)'
 
 # Skrytí během pádu
 Reset-Duck $main
@@ -1164,7 +1244,7 @@ Write-Section 'Zamčení PC a spánek při nečinnosti'
 # ===========================================================================
 Reset-Duck $main
 Invoke-SessionSwitch 'SessionLock'
-Assert-True ($state.Hidden -and $state.HiddenByLock -and -not $window.IsVisible -and @($timers | Where-Object Running).Count -eq 0 -and -not $legs.Running) 'zamčení PC: kachna se schová a nic neběží (~0 % CPU)'
+Assert-True ($state.Hidden -and $state.HiddenByLock -and -not $window.IsVisible -and @($timers | Where-Object Running).Count -eq 0 -and -not $state.Legs.Running) 'zamčení PC: kachna se schová a nic neběží (~0 % CPU)'
 Invoke-SessionSwitch 'SessionUnlock'
 Assert-True (-not $state.Hidden -and $window.IsVisible -and $ui.SpeechText.Text -in $welcomePhrases -and $null -ne $sim.Anims['Left']) "odemčení: kachna se vrátí ('$($ui.SpeechText.Text)') a jde dál"
 Set-Hidden $true
@@ -1190,14 +1270,14 @@ $state.LastActivity = $clock.T - $config.IdleSleepMin * 60 + 1.5
 Assert-True (-not $state.Sleeping) "kachna je vzhůru, dokud se myš hnula před méně než $($config.IdleSleepMin) min"
 [void](Invoke-Sim -Seconds 1.5)
 Assert-True ($state.Sleeping -and $ui.SpeechText.Text -in $sleepPhrases -and $ui.SleepEye.Visibility -eq 'Visible' -and $ui.circle12.Visibility -eq 'Hidden') "po $($config.IdleSleepMin) min bez pohybu myši usne: '$($ui.SpeechText.Text)', zavřené oči"
-Assert-True ($sim.Anims.Count -eq 0 -and -not $legs.Running -and -not $glow.Running -and -not $speechTimer.Running -and $heartTimer.Interval.TotalSeconds -eq $config.SleepCheckSec) "spánek: animace i hlášky stojí, jen jednou za $($config.SleepCheckSec) s kontrola myši"
+Assert-True ($sim.Anims.Count -eq 0 -and -not $state.Legs.Running -and -not $state.Glow.Running -and -not $speechTimer.Running -and $heartTimer.Interval.TotalSeconds -eq $config.SleepCheckSec) "spánek: animace i hlášky stojí, jen jednou za $($config.SleepCheckSec) s kontrola myši"
 $ticks = $heartTimer.Ticks
 [void](Invoke-Sim -Seconds 600 -Step 1)
 Assert-True ($state.Sleeping -and $ui.SpeechBubble.Visibility -eq 'Visible' -and $heartTimer.Ticks - $ticks -le 301) ("10 minut spánku: {0} krátkých probuzení PowerShellu, bublina Zzz zůstává" -f ($heartTimer.Ticks - $ticks))
 $sim.Cursor = '500,500'
 [void](Invoke-Sim -Seconds 2.1)
 Assert-True (-not $state.Sleeping -and $ui.SpeechText.Text -in $wakePhrases -and $ui.circle12.Visibility -eq 'Visible' -and $ui.SleepEye.Visibility -eq 'Hidden') "pohyb myši ji probudí: '$($ui.SpeechText.Text)'"
-Assert-True ($null -ne $sim.Anims['Left'] -and $legs.Running -and $glow.Running -and $speechTimer.Running -and $heartTimer.Interval.TotalSeconds -eq 1) 'po probuzení zase chodí a mluví'
+Assert-True ($null -ne $sim.Anims['Left'] -and $state.Legs.Running -and $state.Glow.Running -and $speechTimer.Running -and $heartTimer.Interval.TotalSeconds -eq 1) 'po probuzení zase chodí a mluví'
 Set-Sleeping $true
 Invoke-Summon
 Assert-True (-not $state.Sleeping -and $state.Falling) 'přivolání spící kachnu probudí'
@@ -1212,10 +1292,10 @@ Reset-Duck $main
 [void](Invoke-Sim -Seconds 5)
 $xSuspend = $window.Left
 Invoke-PowerModeChange 'Suspend'
-Assert-True ($sim.Anims.Count -eq 0 -and $state.Motion -eq 'None' -and -not $legs.Running -and $window.Left -eq $xSuspend) 'uspání PC: kachna se zastaví tam, kde je'
+Assert-True ($sim.Anims.Count -eq 0 -and $state.Motion -eq 'None' -and -not $state.Legs.Running -and $window.Left -eq $xSuspend) 'uspání PC: kachna se zastaví tam, kde je'
 $state.LastActivity = -9999
 Invoke-PowerModeChange 'Resume'
-Assert-True ($null -ne $sim.Anims['Left'] -and $sim.Anims['Left'].From -eq $xSuspend -and $legs.Running) 'probuzení PC: jde dál z téhož místa'
+Assert-True ($null -ne $sim.Anims['Left'] -and $sim.Anims['Left'].From -eq $xSuspend -and $state.Legs.Running) 'probuzení PC: jde dál z téhož místa'
 Assert-True ($clock.T - $state.LastActivity -lt 1) 'probuzení PC se počítá jako aktivita (kachna hned neusne)'
 
 # ===========================================================================
@@ -1226,7 +1306,7 @@ $sim.CursorDip = [pscustomobject]@{ X = 1000; Y = 500 }
 Invoke-Menu 'Pojď za myší'
 Assert-True ($state.Follow -and $heartTimer.Interval.TotalSeconds -eq $config.FollowHeartbeatSec -and $ui.SpeechText.Text -in $followPhrases) "zapnutí: '$($ui.SpeechText.Text)', tep $($config.FollowHeartbeatSec) s"
 [void](Invoke-Sim -Seconds 60)
-Assert-True ([math]::Abs($window.Left - (1000 - $window.Width / 2)) -lt 0.01 -and $sim.Anims.Count -eq 0 -and -not $legs.Running) 'dojde pod kurzor a stojí (nohy u sebe)'
+Assert-True ([math]::Abs($window.Left - (1000 - $window.Width / 2)) -lt 0.01 -and $sim.Anims.Count -eq 0 -and -not $state.Legs.Running) 'dojde pod kurzor a stojí (nohy u sebe)'
 $sim.CursorDip = [pscustomobject]@{ X = 400; Y = 500 }
 [void](Invoke-Sim -Seconds 1)
 Assert-True ($state.Direction -eq -1 -and $null -ne $sim.Anims['Left']) 'kurzor se posune doleva: otočí se a jde za ním'
@@ -1251,7 +1331,7 @@ $sim.CursorDip = [pscustomobject]@{ X = 1500; Y = 300 }
 Invoke-Menu 'Nakrmit rohlíkem'
 $crumb = $sim.Crumb
 Assert-True ($crumb.Visible -and $crumb.X -eq 1500 - $config.CrumbSize.Width / 2 -and $crumb.GroundY -eq $main.Bottom - $config.CrumbSize.Height) 'rohlík spadne u kurzoru na zem'
-Assert-True ($ui.SpeechText.Text -in $foodPhrases -and $state.Direction -eq 1 -and $sim.Anims['Left'].To -eq 1500 - $config.BeakOffset) "kachna k němu běží: '$($ui.SpeechText.Text)'"
+Assert-True ($ui.SpeechText.Text -in $foodPhrases -and $state.Direction -eq 1 -and $sim.Anims['Left'].To -eq 1500 - $characters.Kachna.BeakOffset) "kachna k němu běží: '$($ui.SpeechText.Text)'"
 [void](Invoke-Sim -Seconds 120)
 Assert-True ($null -eq $state.Food -and -not $crumb.Visible) 'rohlík snědla a zmizel'
 Assert-True ($sim.AnimLog.Where({ $_.Property -eq 'Top' -and $_.Ease -eq 'EaseOut' }).Count -ge 1 -and $null -ne $sim.Anims['Left']) 'po jídle radostí poskočí a jde dál'
@@ -1259,7 +1339,7 @@ Reset-Duck $main
 Stop-Motion; $state.X = 1200; Set-WindowPosition; Start-Walk
 $sim.CursorDip = [pscustomobject]@{ X = 600; Y = 300 }
 Start-Feeding
-Assert-True ($state.Direction -eq -1 -and $sim.Anims['Left'].To -eq 600 - ($window.Width - $config.BeakOffset)) 'rohlík za kachnou: otočí se a jde k němu zobákem napřed'
+Assert-True ($state.Direction -eq -1 -and $sim.Anims['Left'].To -eq 600 - ($window.Width - $characters.Kachna.BeakOffset)) 'rohlík za kachnou: otočí se a jde k němu zobákem napřed'
 $eaten = $false
 for ($i = 0; $i -lt 600 -and -not $eaten; $i++) { Step-Sim 0.1; if ($state.Eating) { $eaten = $true } }
 Assert-True ($eaten -and $ui.SpeechText.Text -in $eatPhrases -and $sim.Anims.Count -eq 0) "u rohlíku se zastaví a jí: '$($ui.SpeechText.Text)'"
@@ -1371,6 +1451,131 @@ Step-Sim 1.0
 Assert-True ($ui.CostumeGlasses.Visibility -eq 'Visible' -and $ui.CostumeSanta.Visibility -eq 'Collapsed') 'změna data za běhu: v létě sluneční brýle (kontrola jednou za minutu)'
 
 # ===========================================================================
+Write-Section 'Postavy'
+# ===========================================================================
+$names = @($characters.Keys)
+$calendar = $config.CharacterCalendar
+Assert-True ((Get-ForcedCharacter ([datetime]'2026-12-10') $calendar) -eq 'Kachna' -and (Get-ForcedCharacter ([datetime]'2027-01-06') $calendar) -eq 'Kachna' -and (Get-ForcedCharacter ([datetime]'2027-01-07') $calendar) -eq '') 'kalendář: o Vánocích (1. 12. až 6. 1.) je vynucená kachna, jinak nic'
+$rules = @(@{ From = 401; To = 430; Character = 'Slepice' })
+Assert-True ((Get-ForcedCharacter ([datetime]'2026-04-15') $rules) -eq 'Slepice' -and (Get-ForcedCharacter ([datetime]'2026-05-01') $rules) -eq '' -and (Get-ForcedCharacter ([datetime]'2026-04-15') @()) -eq '') 'kalendář: období uvnitř roku, prázdný kalendář'
+Assert-True ((Get-StartCharacter $names 'Slepice' 'Kachna' 7) -eq 'Kachna' -and (Get-StartCharacter $names 'Skřítek' '' 7) -eq 'Skřítek') 'start: kalendář má přednost před nastavením'
+$started = @(0..29 | ForEach-Object { Get-StartCharacter $names 'Náhodná' '' $_ } | Sort-Object -Unique)
+Assert-True ($started.Count -eq $names.Count) "start s 'Náhodná': může to být kterákoli postava ($($started -join ', '))"
+Assert-True ((Get-NextCharacter $names 'Kachna' $true 0) -eq 'Slepice' -and (Get-NextCharacter $names 'Skřítek' $true 0) -eq 'Kachna') 'střídání popořadě: za poslední zase první'
+$next = @(0..19 | ForEach-Object { Get-NextCharacter $names 'Slepice' $false $_ } | Sort-Object -Unique)
+Assert-True ($next.Count -eq $names.Count - 1 -and $next -notcontains 'Slepice') "náhodné střídání: vždy jiná postava ($($next -join ', '))"
+Assert-True ((Get-NextCharacter @('Kachna') 'Kachna' $false 3) -eq 'Kachna') 'střídání s jedinou postavou: zůstane'
+foreach ($name in $names) {
+    $voice = $characters[$name].Voice
+    $wave = New-QuackWave -Notes $voice
+    $samples = ($voice | ForEach-Object { [int](22050 * $_[0]) } | Measure-Object -Sum).Sum
+    Assert-True ($wave.Length -eq 44 + 2 * $samples -and [BitConverter]::ToInt32($wave, 40) -eq 2 * $samples) ("{0}: hlas ({1}) je platný WAV ({2:N2} s)" -f $name, $characters[$name].SoundName, ($samples / 22050))
+}
+
+# Přepnutí za chůze
+Reset-Duck $main
+[void](Invoke-Sim -Seconds 3)
+$duckLegs = $state.Legs
+Invoke-Menu 'Postava', 'Slepice'
+Assert-True ($state.Character -eq 'Slepice' -and $ui.CharChicken.Visibility -eq 'Visible' -and $ui.CharDuck.Visibility -eq 'Collapsed' -and $ui.CharMinion.Visibility -eq 'Collapsed') 'menu: přepnutí na slepici (vidět je jen ona)'
+Assert-True (-not $duckLegs.Running -and $state.Legs -eq $characterAnimations.Slepice.Legs -and $state.Legs.Running -and $state.Glow.Running -and $null -ne $sim.Anims['Left']) 'kachní storyboardy stojí, slepičí běží a jde se dál'
+Assert-True ($ui.SpeechText.Text -in $characterPhrases.Slepice.Hello) "slepice pozdraví: '$($ui.SpeechText.Text)'"
+$said = @(1..40 | ForEach-Object { Invoke-SpeechTick; $ui.SpeechText.Text })
+Assert-True (@($said | Where-Object { $_ -notin $characterPhrases.Slepice.Main }).Count -eq 0) 'slepice říká svoje hlášky'
+Set-Paused $true
+Assert-True ($ui.SpeechText.Text -in $characterPhrases.Slepice.Complaint) "a stěžuje si po svém: '$($ui.SpeechText.Text)'"
+Set-Paused $false
+Update-MenuState -Items $menuItems -Tray $false
+Assert-True ($null -ne (Find-MenuItem -Items $menuItems -Path 'Skrýt slepici') -and $null -ne (Find-MenuItem -Items $menuItems -Path 'Nastavení', 'Zvuk (kokodák)') -and $null -ne (Find-MenuItem -Items $menuItems -Path 'Nastavení', 'Zapnuté slepičí hlášky')) 'menu mluví o slepici (Skrýt slepici, Zvuk (kokodák), slepičí hlášky)'
+Assert-True ((Find-MenuItem -Items $menuItems -Path 'Postava', 'Slepice').IsChecked -and -not (Find-MenuItem -Items $menuItems -Path 'Postava', 'Kachna').IsChecked) 'menu: zaškrtnutá je slepice'
+$sim.Now = [datetime]'2026-12-24 19:00'
+$situation = @(Get-SituationPhrase -Now $sim.Now -Power $null -DistanceDip 0 -UptimeMin 0)
+Assert-True ($situation.Count -ge 3 -and @($situation | Where-Object { $_ -match '(?i)kv[aá]k|kachn|rybn' }).Count -eq 0 -and @($situation | Where-Object { $_ -in $characterPhrases.Slepice.Situation.Christmas }).Count -eq 2) 'Štědrý večer: slepičí vánoční hlášky'
+Update-Costume
+Assert-True ($ui.CostumeSanta.Visibility -eq 'Visible' -and $ui.ChickenComb.Visibility -eq 'Hidden' -and $ui.CostumeShift.Y -eq 0) 'slepice v prosinci: čepice a hřebínek pod ní'
+$sim.Now = [datetime]'2026-07-15 10:00'
+Update-Costume
+Assert-True ($ui.CostumeGlasses.Visibility -eq 'Visible' -and $ui.ChickenComb.Visibility -eq 'Visible') 'slepice v létě: brýle, hřebínek je vidět'
+Invoke-Menu 'Postava', 'Skřítek'
+Assert-True ($state.Character -eq 'Skřítek' -and $state.Costume -eq '' -and $ui.CostumeGlasses.Visibility -eq 'Collapsed' -and $ui.MinionHair.Visibility -eq 'Visible') 'skřítek v létě: sluneční brýle ne (má svoje)'
+$sim.Now = [datetime]'2026-12-10 10:00'
+Update-Costume
+Assert-True ($ui.CostumeSanta.Visibility -eq 'Visible' -and $ui.MinionHair.Visibility -eq 'Hidden' -and $ui.CostumeShift.X -eq $characters.Skřítek.CostumeShift[0] -and $ui.CostumeShift.Y -eq $characters.Skřítek.CostumeShift[1]) 'skřítek v prosinci: čepice posunutá na jeho hlavu, vlasy pod ní'
+Invoke-Menu 'Postava', 'Náhodná'
+Assert-True ($state.Character -ne 'Skřítek' -and $characters.Contains($state.Character)) "menu 'Náhodná': jiná postava ($($state.Character))"
+
+# Spánek, skrytí a krmení s jinou postavou
+Reset-Duck $main
+$sim.Active = $false
+[void](Invoke-Sim -Seconds ($config.IdleSleepMin * 60 + 2) -Step 1)
+Set-Character 'Skřítek'
+Assert-True ($state.Sleeping -and $ui.MinionSleepEye.Visibility -eq 'Visible' -and $ui.MinionEye.Visibility -eq 'Hidden' -and -not $state.Legs.Running -and -not $state.Glow.Running -and $ui.SpeechText.Text -in $sleepPhrases) 'přepnutí ve spánku: skřítek spí dál (zavřené oko, nic neběží, nezdraví)'
+$sim.Active = $true
+Step-Sim 2.0
+Assert-True (-not $state.Sleeping -and $ui.MinionEye.Visibility -eq 'Visible' -and $ui.MinionSleepEye.Visibility -eq 'Hidden' -and $ui.SpeechText.Text -in $characterPhrases.Skřítek.Wake) "probudí se po svém: '$($ui.SpeechText.Text)'"
+Set-Hidden $true
+Set-Character 'Slepice'
+Assert-True (-not $window.IsVisible -and -not $state.Legs.Running -and @($timers | Where-Object Running).Count -eq 0) 'přepnutí ve skrytu nic nerozběhne'
+Set-Hidden $false
+Assert-True ($ui.SpeechText.Text -in $characterPhrases.Slepice.Show -and $state.Legs.Running) "zobrazí se slepice: '$($ui.SpeechText.Text)'"
+Reset-Duck $main
+Set-Character 'Slepice'
+$sim.CursorDip = [pscustomobject]@{ X = 1500; Y = 500 }
+Start-Feeding
+Assert-True ($sim.Anims['Left'].To -eq 1500 - $characters.Slepice.BeakOffset) 'krmení: slepice jde k rohlíku zobákem (BeakOffset podle postavy)'
+Set-Character 'Skřítek'
+Assert-True ($sim.Anims['Left'].To -eq 1500 - $characters.Skřítek.BeakOffset) 'přepnutí cestou k rohlíku: skřítek jde ke svému místu'
+[void](Invoke-Sim -Seconds 120)
+Assert-True ($null -eq $state.Food -and $ui.SpeechText.Text -notmatch '(?i)kv[aá]k') 'skřítek rohlík sní'
+
+# Střídání postav a kalendář
+Reset-Duck $main
+Invoke-Menu 'Střídat postavy', 'Každých 15 minut'
+[void](Invoke-Sim -Seconds (14 * 60) -Step 1)
+Assert-True ($state.Character -eq 'Kachna') 'střídání: 14 minut pořád kachna'
+$track = Invoke-Sim -Seconds 70 -Step 1
+Assert-True ($state.Character -ne 'Kachna' -and @($track.Texts | Where-Object { $_ -in $characterPhrases[$state.Character].Hello }).Count -eq 1) "po 15 minutách přijde jiná postava ($($state.Character))"
+Invoke-Menu 'Nastavení', 'Střídat postavy popořadě'
+Set-Character 'Kachna'
+$order = @(1..3 | ForEach-Object { [void](Invoke-Sim -Seconds (15 * 60 + 2) -Step 1); $state.Character })
+Assert-True (($order -join ',') -eq 'Slepice,Skřítek,Kachna') "střídání popořadě: $($order -join ' -> ')"
+Invoke-Menu 'Střídat postavy', 'Nestřídat'
+[void](Invoke-Sim -Seconds (20 * 60) -Step 1)
+Assert-True ($state.Character -eq 'Kachna') 'Nestřídat: postava zůstane'
+
+Reset-Duck $main
+Set-Character 'Slepice'
+$sim.Now = [datetime]'2026-11-30 23:59'
+Invoke-Menu 'Střídat postavy', 'Každých 15 minut'
+$state.NextPowerCheck = $clock.T
+Step-Sim 1.0
+Assert-True ($state.Character -eq 'Slepice' -and $state.CalendarCharacter -eq '') '30. listopadu: slepice'
+$sim.Now = [datetime]'2026-12-01 00:01'
+$state.NextPowerCheck = $clock.T
+Step-Sim 1.0
+Assert-True ($state.Character -eq 'Kachna' -and $state.CalendarCharacter -eq 'Kachna' -and $ui.CostumeSanta.Visibility -eq 'Visible') '1. prosince: kalendář přepne na kachnu s čepicí'
+[void](Invoke-Sim -Seconds (40 * 60) -Step 1)
+Assert-True ($state.Character -eq 'Kachna') 'o Vánocích se postavy nestřídají'
+Invoke-Menu 'Postava', 'Skřítek'
+[void](Invoke-Sim -Seconds (2 * 60) -Step 1)
+Assert-True ($state.Character -eq 'Skřítek') 'ruční volba v menu platí i o Vánocích'
+$sim.Now = [datetime]'2027-01-07 08:00'
+$state.NextPowerCheck = $clock.T
+Step-Sim 1.0
+Assert-True ($state.Character -eq 'Skřítek' -and $state.CalendarCharacter -eq '') 'po Třech králích zůstane poslední postava'
+[void](Invoke-Sim -Seconds (16 * 60) -Step 1)
+Assert-True ($state.Character -ne 'Skřítek') 'a střídání zase běží'
+
+# Start podle kalendáře
+$state.Character = ''
+$sim.Now = [datetime]'2026-12-24 10:00'
+Initialize-Character
+Assert-True ($state.Character -eq 'Kachna' -and $state.CalendarCharacter -eq 'Kachna') 'start o Vánocích: kachna'
+$sim.Now = [datetime]'2026-03-11 10:00'
+$seen = @(1..30 | ForEach-Object { $state.Character = ''; Initialize-Character; $state.Character } | Sort-Object -Unique)
+Assert-True ($seen.Count -eq $names.Count) "start mimo Vánoce: náhodná postava ($($seen -join ', '))"
+
+# ===========================================================================
 Write-Section 'Zvuk'
 # ===========================================================================
 Reset-Duck $main
@@ -1403,6 +1608,8 @@ $expectChecked = [ordered]@{
     'Nastavení|Zapnuté kachní hlášky' = $true; 'Nastavení|Tichý režim (bez bublin)' = $false; 'Nastavení|Zvuk (kvák)' = $false; 'Nastavení|Vždy navrchu' = $true
     'Připomínky|Pitný režim (každou hodinu)' = $true; 'Připomínky|Protažení (každé 2 hodiny)' = $true
     'Připomínky|Pomodoro (25 min práce, 5 min pauza)' = $true; 'Pojď za myší' = $false
+    'Postava|Kachna' = $true; 'Postava|Slepice' = $false; 'Postava|Náhodná' = $false; 'Střídat postavy|Nestřídat' = $true
+    'Nastavení|Střídat postavy popořadě' = $false
 }
 $state.RandomBehavior = $false
 Update-MenuState -Items $menuItems -Tray $false
@@ -1413,7 +1620,7 @@ foreach ($path in $expectChecked.Keys) {
     Assert-True ($null -ne $duckItem -and $null -ne $trayItem -and $duckItem.IsChecked -eq $expectChecked[$path] -and $trayItem.Checked -eq $expectChecked[$path]) ("menu: '{0}' {1} (u kachny i u ikony)" -f ($path -replace '\|', ' > '), $(if ($expectChecked[$path]) { 'zaškrtnuté' } else { 'nezaškrtnuté' }))
 }
 $submenus = @($menuItems + $trayItems | Where-Object { $_.Tag -and ($_.Tag.Spec.Choices -or $_.Tag.Spec.Items) -and $null -eq $_.Tag.Choice })
-Assert-True ($submenus.Count -eq 12 -and @($submenus | Where-Object Clickable).Count -eq 0) 'podmenu nemají vlastní akci (klik na volbu k nim ve WPF probublá)'
+Assert-True ($submenus.Count -eq 16 -and @($submenus | Where-Object Clickable).Count -eq 0) 'podmenu nemají vlastní akci (klik na volbu k nim ve WPF probublá)'
 Set-Paused $true
 Update-MenuState -Items $menuItems -Tray $false
 Assert-True ($menuItems[0].Header -eq 'Pokračovat') 'v pauze menu nabízí Pokračovat'

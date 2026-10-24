@@ -10,8 +10,8 @@
       - dvojklik ...................... poskok
       - přetažení levým tlačítkem ..... přesun kachny kamkoli, i na jiný monitor; po puštění spadne dolů
       - najetí myší na bublinu ........ bublina se na chvíli schová (dá se kliknout na okno pod ní)
-      - pravé tlačítko ................ menu (pauza, skrýt, skrýt na čas, nakrmit, pojď za myší, rychlosti,
-                                        úsporný režim, připomínky, nastavení, ukončit)
+      - pravé tlačítko ................ menu (pauza, skrýt, skrýt na čas, postava, střídat postavy, nakrmit,
+                                        pojď za myší, rychlosti, úsporný režim, připomínky, nastavení, ukončit)
       - ikona v oznamovací oblasti .... stejné menu + "Přivolat kachnu k myši" (také dvojklikem na ikonu);
                                         tady se skrytá kachna zase zobrazí (skrytá stojí, mlčí a nic nedělá)
 
@@ -20,6 +20,8 @@
       - kachna dojde až k okraji pracovní plochy a respektuje hlavní panel na libovolné straně,
       - plynulý pohyb řízený animacemi WPF, bublina je vždy u hlavy a přizpůsobí se délce textu,
       - hlášky podle denní doby, svátků, baterie a ušlé vzdálenosti; připomínky (pitný režim, Pomodoro),
+      - postavy: kachna, slepice a žlutý brýlatý skřítek (po startu náhodně, volba v menu, střídání,
+        o Vánocích kachna s čepicí; nastavení Character a CharacterCalendar v $config),
       - náhodné chování, krmení rohlíkem, "Pojď za myší", poskok, sezónní převleky, volitelný zvuk,
       - úspornost: omezené snímky animací, usnutí při nečinnosti, skrytí při zamčení PC, úsporný režim na baterii,
       - reakce na změnu rozlišení nebo odpojení monitoru (kachna nezmizí mimo obrazovku).
@@ -83,6 +85,13 @@ $config = @{
     RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
+    Character            = 'Náhodná'  # postava po startu: 'Kachna', 'Slepice', 'Skřítek' nebo 'Náhodná'
+    CharacterCalendar    = @(         # vynucená postava v období (měsíc * 100 + den, období může přejít přes Nový rok)
+        @{ From = 1201; To = 106; Character = 'Kachna' }   # Vánoce: kachna s mikulášskou čepicí
+    )
+    CharacterRotations   = [ordered]@{ 'Nestřídat' = 0; 'Každých 15 minut' = 15; 'Každou hodinu' = 60; 'Každé 3 hodiny' = 180 }
+    DefaultRotation      = 'Nestřídat'
+    RotateInOrder        = $false     # střídat postavy popořadě (jinak náhodně)
     Phrases              = $true      # kachní hlášky: sama od sebe mluví (při chůzi i stížnosti v pauze)
     Sound                = $false     # kvák při klepnutí, poskoku, jídle a připomínce
     Topmost              = $true      # kachna vždy navrchu
@@ -97,7 +106,6 @@ $config = @{
     PomodoroMin          = @{ Work = 25; Break = 5 }
     EatSec               = 2          # jak dlouho kachna jí rohlík
     CrumbSize            = @{ Width = 40; Height = 24 }  # okno s rohlíkem (DIP, stejně jako v $crumbXaml)
-    BeakOffset           = 235        # zobák od levého okraje okna, když kachna jde doprava (DIP)
     SoftwareRendering    = $true      # kreslit bez grafické karty: u malého průhledného okna obvykle levnější (změř tests/Measure-KachnaV2.ps1)
     Priority             = 'BelowNormal'  # kachna nikdy nezpomalí práci
 }
@@ -329,6 +337,219 @@ $situationPhrases = @{
     Uptime     = @("Už spolu chodíme {0}.", "Jsem s tebou už {0}. Kvák!")
 }
 
+# Po přepnutí na jinou postavu (menu, střídání, kalendář)
+$helloPhrases = @(
+    "Kvák! Kachna je zpátky!",
+    "Zase já, kachna!",
+    "Kachna nastupuje do služby!"
+)
+
+# Hlášky dalších postav. Seznam, který postava nemá, se vezme od kachny ($commonPhrases), u připomínek
+# a situačních hlášek po jednotlivých klíčích. Slepice mluví v ženském rodě, skřítek v mužském.
+$characterPhrases = @{
+    'Slepice' = @{
+        Main      = @(
+            "Kokodák! Jak se dnes máš?",
+            "Slepičí život je nejlepší život!",
+            "Nemáš trochu zrní?",
+            "Co bylo dřív, slepice, nebo vejce? Já, samozřejmě.",
+            "Dneska jsem snesla bug. Teda vejce.",
+            "Kokodák! Restartuj počítač, to pomůže.",
+            "Nejsem kuře, jsem dáma.",
+            "Hrabu, hrabu... a pořád žádný červík.",
+            "Kdo nehrabe, nemá.",
+            "Proč přešla slepice silnici? Kvůli lepší wifi.",
+            "Na hřadu je nejlíp. Ale tady taky ujde.",
+            "Slepičí polévka? To ani neříkej!",
+            "Kohout sice kokrhá, ale práci dělám já.",
+            "Mám slepičí paměť. Co jsem to chtěla říct?",
+            "Snáším vejce i tvoje e-maily.",
+            "Kurník je můj hrad.",
+            "Zrnko k zrnku, kód ke kódu.",
+            "Jsem slepice, ne papoušek. Ale kokodák umím.",
+            "Kokodák! To je slepičí pro: makej!",
+            "Nechodím, já se procházím s grácií.",
+            "Pšenice, kukuřice, ječmen... a co máš ty?",
+            "Kdo dřív přijde, ten dřív zobe.",
+            "Vejce natvrdo, nebo naměkko? Ani jedno, díky!",
+            "Tahle obrazovka je jak výběh. Jen bez trávy.",
+            "Ve vesmíru tě nikdo neslyší kdákat.",
+            "Nechť tě provází Síla... a hrst zrní.",
+            "Mám vyšší hřad, ${Env:UserName}!",
+            "Hasta la vista, kuřátko.",
+            "Já se vrátím... pro další zrníčko.",
+            "Houstone, máme vejce..."
+        )
+        Complaint = @(
+            "Hej! Proč se nemůžu hýbat?!",
+            "Pusť mě! Mám nohy na hrabání, ne na stání!",
+            "Tohle je slepičí vězení!",
+            "Stojím tu jak strašák v poli...",
+            "Nohy mi tuhnou. Klepni na mě, prosím!",
+            "Zavolám slepičí odbory!",
+            "Takhle vypadá chov ve volném výběhu?",
+            "Kokodák... kokodák... nuda...",
+            "Ostatní slepice hrabou, jen já tu trčím.",
+            "Jsem slepice, ne socha!",
+            "Jestli mě nepustíš, začnu kdákat!",
+            "${Env:UserName}, pamatuješ si ještě na mě?"
+        )
+        Resume    = @("Konečně! Nohy, vpřed!", "Svoboda! Kokodák!", "Díky! Už jsem myslela, že tu snesu vejce.", "Jdeme hrabat!")
+        Drop      = @("Juchů! Nový výběh!", "Uf, slepice nejsou stavěné na létání!", "Příště mě aspoň upozorni!", "Tady se mi líbí. Je tu zrní?", "Slepičí aerolinie děkují za let.")
+        Rest      = @("Chvilku si odpočinu...", "Musím si tu zahrabat.", "Kam jsem to vlastně šla?", "Malá pauza na čechrání peří.", "Mám slepičí paměť, zapomněla jsem, kam jdu.", "Taktická zobací přestávka.")
+        Show      = @("Kuk! Už jsem zpátky!", "Chyběla jsem ti?", "Byla jsem jen snést vejce.", "Konec schovávané!")
+        Welcome   = @("Vítej zpět!", "Konečně! Už jsem se nudila.", "Ahoj! Hlídala jsem ti kurník.", "Kokodák! Jak bylo venku?")
+        Sleep     = @("Zzz...", "Zzz... zrníčka... zzz...", "Chrr... kokodák... zzz...")
+        Wake      = @("Á, už jsi zpátky!", "Nespala jsem, jen jsem seděla na vejcích.", "Kokodák! Už jsem vzhůru!", "Zdálo se mi o poli plném zrní...")
+        Hop       = @("Hop!", "Juchů!", "Skoro jsem vzlétla!", "Hop a kokodák!")
+        Cross     = @("Jé, nový monitor!", "Tady jsem ještě nebyla!", "Nový výběh! Kde je zrní?", "Dobrý den, sousedé!")
+        Eat       = @("Mňam!", "Mňam mňam, děkuju!", "Lepší než zrní!", "Kokodák! Ještě jeden?")
+        Hello     = @("Kokodák! Teď jsem tu já, slepice!", "Slepice nastupuje do služby!", "Ahoj! Teď to tu hlídám já, slepice.")
+        Reminder  = @{
+            Drink   = @("Napij se! Slepice pijou po každém zobnutí.", "Pitný režim! Sklenička vody neuškodí.", "Čas na doušek! Já si ďobnu z napáječky.")
+            Stretch = @("Protáhni se! Slepice to dělají pořád.", "Vstaň a protáhni se, já ti pohlídám počítač.", "Zamávej křídly! Teda rukama.")
+        }
+        Situation = @{
+            Morning    = @("Dobré ráno, ${Env:UserName}! Kohout už kokrhal.", "Ráno je moudřejší večera. A slepice je moudřejší než obojí.")
+            Afternoon  = @("Odpolední krize? Dej si zrnko... teda kafe.", "Odpoledne se mi vždycky chce na hřad.")
+            Evening    = @("Už je večer. Nechceš jít domů?", "Večer se chodí na hřad.")
+            Night      = @("Slepice už dávno sedí na hřadu. A ty?", "Je noc, ${Env:UserName}! Jdi spát.")
+            Friday     = @("Pátek odpoledne! Víkend na obzoru!", "Pátek! Kdákám radostí.")
+            Valentine  = @("Dneska je Valentýn. Kokodák a pusu!")
+            AprilFool  = @("Dneska věř jen slepicím.", "Apríl! Teda... kokodák.")
+            Halloween  = @("Bú! Strašidelná slepice!", "Koledu, nebo zrní!")
+            Advent     = @("Už máš dárky? Já chci zrní.", "Advent! Peču perníčky... teda zobu drobky.")
+            Christmas  = @("Veselé Vánoce! Řízek ne, prosím!", "Šťastné a veselé! Rozbalíme dárky?")
+            Easter     = @("Velikonoce! Vejce? Ta jsou moje!", "Veselé Velikonoce! Barvi opatrně, to jsou moje vejce.")
+            Battery    = @("Mám jen {0} % baterie! Dej mi nabíječku!", "Baterie {0} %! Kokodák, nabíječku!")
+            Uptime     = @("Už spolu chodíme {0}.", "Jsem s tebou už {0}. Kokodák!")
+        }
+    }
+    'Skřítek' = @{
+        Main      = @(
+            "Banána! Jak se dnes máš?",
+            "Tralala, bababa, banána!",
+            "Máš banán? Ne? A jablko? Taky ne?",
+            "Skřítčí život je nejlepší život!",
+            "Moje brýle vidí všechno. Hlavně banány.",
+            "Jedno oko, dvojnásobná pozornost!",
+            "Kdo nosí lacláče, ten má styl.",
+            "Šéf říkal: žádné hlouposti. Tak dělám jen malé.",
+            "Bapple! To je jablko, víš?",
+            "Restartuj počítač! Já taky občas spadnu.",
+            "Jsem žlutý, protože jsem sluníčko kanceláře.",
+            "Pracuji na tajném plánu. Je o banánech.",
+            "Hihihi! Promiň, vzpomněl jsem si na vtip.",
+            "Tenhle program je skoro tak dobrý jako banán.",
+            "Bí-bú, bí-bú! Teda nic, jen cvičím.",
+            "Pozor, žlutá hlídka!",
+            "Prý se tu rozdávají banány. Já nic nedostal!",
+            "Kdyby byly bugy banány, byl bych boháč.",
+            "Jsem malý, ale ambiciózní.",
+            "Nechť tě provází Síla... a banán.",
+            "Hasta la vista, banánku.",
+            "Já se vrátím... pro další banán.",
+            "Ve vesmíru tě nikdo neslyší chichotat.",
+            "${Env:UserName}, jsem tvůj banán. Teda otec.",
+            "Houstone, máme banán...",
+            "Žlutá je nová černá.",
+            "Kampaj! Na zdraví!",
+            "Moje brýle jsou neprůstřelné. Myslím. Asi.",
+            "Banánááá! Pardon, ulítlo mi to.",
+            "Nejsem malý, jsem kapesní."
+        )
+        Complaint = @(
+            "Hej! Proč se nemůžu hýbat?!",
+            "Pusť mě! Mám nohy na chození, ne na stání!",
+            "Tohle je skřítčí vězení!",
+            "Stojím tu jak socha v parku...",
+            "Nohy mi tuhnou. Klepni na mě, prosím!",
+            "Stávkuju! Chci banány!",
+            "Zavolám skřítčí odbory!",
+            "Bababa... nuda...",
+            "Ostatní skřítci chodí, jen já tu trčím.",
+            "Jestli mě nepustíš, začnu zpívat!",
+            "Jsem skřítek, ne zátiší!",
+            "${Env:UserName}, pamatuješ si ještě na mě?"
+        )
+        Resume    = @("Konečně! Nohy, vpřed!", "Svoboda! Banána!", "Díky! Už jsem myslel, že tu zapustím kořeny.", "Jdeme na to!")
+        Drop      = @("Juchů! Nové teritorium!", "Uiii! To byl let!", "Příště mě aspoň upozorni!", "Tady se mi líbí. Jsou tu banány?", "Skřítčí aerolinie děkují za let.")
+        Rest      = @("Chvilku si odpočinu...", "Ty jo, to je ale výhled!", "Kam jsem to vlastně šel?", "Malá pauza na leštění brýlí.", "Zapomněl jsem, pro co jsem to vlastně šel.", "Předstírám, že jsem banán.")
+        Show      = @("Kuk! Už jsem zpátky!", "Chyběl jsem ti?", "Tak kde jsem to skončil?", "Byl jsem si jen pro banán.")
+        Welcome   = @("Vítej zpět!", "Konečně! Už jsem se nudil.", "Ahoj! Hlídal jsem ti počítač.", "Banána! Jak bylo venku?")
+        Sleep     = @("Zzz...", "Zzz... banány... zzz...", "Chrr... bababa... zzz...")
+        Wake      = @("Á, už jsi zpátky!", "Nespal jsem, jen jsem šetřil energii.", "Banána! Už jsem vzhůru!", "Zdálo se mi o banánovníku...")
+        Hop       = @("Hop!", "Juchů!", "Uiii!", "Hop a banána!")
+        Cross     = @("Jé, nový monitor!", "Tady jsem ještě nebyl!", "Hraniční přechod... nic k proclení, jen banány.", "Dobrý den, sousedé!")
+        Food      = @("Rohlík! Není to banán, ale beru!", "To je pro mě? Jdu na to!", "Moje! Všechno moje!")
+        Eat       = @("Mňam!", "Mňam mňam, děkuju!", "Skoro jako banán!", "Banána! Ještě jeden?")
+        Hello     = @("Banána! Teď jsem tu já, skřítek!", "Skřítek nastupuje do služby!", "Ahoj! Teď to tu hlídám já.")
+        Reminder  = @{
+            Drink   = @("Napij se! Já si dám banánový koktejl.", "Pitný režim! Sklenička vody neuškodí.", "Čas na doušek!")
+            Stretch = @("Protáhni se! Skřítci to dělají pořád.", "Vstaň a protáhni se, já ti pohlídám počítač.", "Zamávej rukama! Já mám krátké, ale snažím se.")
+        }
+        Situation = @{
+            Morning    = @("Dobré ráno, ${Env:UserName}! Banán už byl?", "Ráno je moudřejší večera. A já jsem moudřejší než obojí.")
+            Lunch      = @("Oběd! Kdo má banán?", "Můj žaludek říká, že je čas na oběd.")
+            Afternoon  = @("Odpolední krize? Dej si banán.", "Odpoledne se mi vždycky chce spát.")
+            Evening    = @("Už je večer. Nechceš jít domů?", "Večer je nejlepší čas na banán.")
+            Night      = @("Skřítci už spí. A ty?", "Je noc, ${Env:UserName}! Jdi spát.")
+            Friday     = @("Pátek odpoledne! Víkend na obzoru!", "Pátek! Banánová párty!")
+            NewYear    = @("Šťastný nový rok! Předsevzetí: víc banánů.")
+            Valentine  = @("Dneska je Valentýn. Banán a pusu!")
+            AprilFool  = @("Dneska věř jen skřítkům.", "Apríl! Teda... banána.")
+            Halloween  = @("Bú! Strašidelný skřítek!", "Koledu, nebo banán!")
+            Advent     = @("Už máš dárky? Já chci banán.", "Advent! Peču banánový chleba.")
+            Christmas  = @("Veselé Vánoce! Pod stromeček banán, prosím!", "Šťastné a veselé! Rozbalíme dárky?")
+            NewYearEve = @("Silvestr! Pozor na rachejtle, brýle mám jen jedny.")
+            Easter     = @("Hody, hody, doprovody, dejte skřítkovi banány!", "Veselé Velikonoce! Vejce nesnesu, jsem skřítek.")
+            Battery    = @("Mám jen {0} % baterie! Dej mi nabíječku!", "Baterie {0} %! Banána, nabíječku!")
+            Distance   = @("Dnes jsem ušel už {0}!", "Ušel jsem {0}. Zasloužím si banán.")
+            Uptime     = @("Už spolu chodíme {0}.", "Jsem s tebou už {0}. Banána!")
+        }
+    }
+}
+
+# Hlášky kachny = výchozí pro všechny postavy (Get-PhraseList)
+$commonPhrases = @{
+    Main = $duckPhrases; Complaint = $complaintPhrases; Resume = $resumePhrases; Drop = $dropPhrases; Rest = $restPhrases
+    Show = $showPhrases; Welcome = $welcomePhrases; Sleep = $sleepPhrases; Wake = $wakePhrases; Hop = $hopPhrases
+    Cross = $crossPhrases; Food = $foodPhrases; Eat = $eatPhrases; Follow = $followPhrases; Hello = $helloPhrases
+    Reminder = $reminderPhrases; Situation = $situationPhrases
+}
+
+# ---------------------------------------------------------------------------
+# Postavy
+# ---------------------------------------------------------------------------
+# Kresby jsou v XAML (Element), ostatní je jejich popis: které části animují nohy (Legs, posun o LegShift)
+# a barvu těla (Body -> Glow), oči (Eyes = otevřené, SleepEye = zavřené), co schovat pod klobouk (Hats),
+# které převleky jí sluší (Costumes) a o kolik je posunout (CostumeShift), kde má zobák / pusu při krmení
+# (BeakOffset = od levého okraje okna při chůzi doprava, DIP), hlas (Voice = tóny pro New-QuackWave,
+# WaveFile = vlastní zvuk vedle skriptu) a slova do menu.
+$characters = [ordered]@{
+    'Kachna'  = @{
+        Element = 'CharDuck'; Accusative = 'kachnu'; Adjective = 'kachní'; SoundName = 'kvák'
+        Legs = @('path2', 'path4'); LegShift = 35; Body = 'path6'; Glow = '#FFFBE03B'
+        Eyes = @('circle12', 'circle14'); SleepEye = 'SleepEye'; Hats = @()
+        Costumes = @('Santa', 'Witch', 'Glasses'); CostumeShift = @(0, 0); BeakOffset = 235
+        Voice = @(, @(0.22, 520, 300)); WaveFile = 'kvak.wav'
+    }
+    'Slepice' = @{
+        Element = 'CharChicken'; Accusative = 'slepici'; Adjective = 'slepičí'; SoundName = 'kokodák'
+        Legs = @('ChickenLegL', 'ChickenLegR'); LegShift = 30; Body = 'ChickenBody'; Glow = '#FFFFEBC8'
+        Eyes = @('ChickenEye', 'ChickenPupil'); SleepEye = 'ChickenSleepEye'; Hats = @('ChickenComb')
+        Costumes = @('Santa', 'Witch', 'Glasses'); CostumeShift = @(0, 0); BeakOffset = 224
+        Voice = @(@(0.07, 700, 640), @(0.05, 0, 0), @(0.07, 700, 640), @(0.05, 0, 0), @(0.2, 900, 600)); WaveFile = ''
+    }
+    'Skřítek' = @{
+        Element = 'CharMinion'; Accusative = 'skřítka'; Adjective = 'skřítkovy'; SoundName = 'banána'
+        Legs = @('MinionLegL', 'MinionLegR'); LegShift = 20; Body = 'MinionBody'; Glow = '#FFFFEA70'
+        Eyes = @('MinionEye', 'MinionIris', 'MinionPupil'); SleepEye = 'MinionSleepEye'; Hats = @('MinionHair')
+        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 19); BeakOffset = 215
+        Voice = @(@(0.12, 800, 760), @(0.04, 0, 0), @(0.12, 950, 900), @(0.04, 0, 0), @(0.18, 860, 700)); WaveFile = ''
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Vzhled okna (XAML)
 # ---------------------------------------------------------------------------
@@ -388,63 +609,159 @@ $situationPhrases = @{
                     <ScaleTransform ScaleX="-1"/>
                 </Canvas.RenderTransform>
                 <Canvas Name="Layer_1" Width="640" Height="480" Canvas.Left="-54" Canvas.Top="-25">
-                    <!-- nohy (path2, path4) i barvu těla (path6) animuje skript, aby šly zastavit (pauza, skrytí, spánek);
-                         nohy se posouvají přes TranslateTransform, ne Canvas.Left (animace pak nepřepočítává rozvržení) -->
-                    <Path Name="path2" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
-                        <Path.RenderTransform>
-                            <TranslateTransform/>
-                        </Path.RenderTransform>
-                        <Path.Data>
-                            <PathGeometry Figures="m 236.71 379.105 c 0 0 15.237 39.537 12.767 58.895 -12.767 -1.854 -32.535 -6.796 -32.535 -6.796 0 0 -9.678 -1.44 -11.738 0.824 -2.06 2.264 -22.239 2.678 -23.475 4.942 -1.235 2.265 -2.266 5.765 -2.06 8.442 0.207 2.677 -8.648 9.265 -7.619 10.913 1.029 1.648 0 2.06 9.678 2.678 9.678 0.617 80.929 1.441 84.84 0 3.912 -1.442 2.677 -12.149 2.471 -14.827 -0.207 -2.677 -18.122 -62.394 -21.623 -65.071 -3.501 -2.677 -4.943 -4.53 -6.59 -4.324 -1.647 0.206 -4.116 4.324 -4.116 4.324 z" FillRule="NonZero"/>
-                        </Path.Data>
-                    </Path>
-                    <Path Name="path4" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
-                        <Path.RenderTransform>
-                            <TranslateTransform/>
-                        </Path.RenderTransform>
-                        <Path.Data>
-                            <PathGeometry Figures="m 295.125 387.11 c 0.57 2.084 4.012 3.529 5.322 5.415 1.521 2.189 3.158 4.339 4.6 6.573 2.977 4.61 5.327 9.352 8.11 13.996 3.083 5.144 6.027 10.228 7.747 15.981 0.76 2.54 3.21 6.122 1.555 8.715 -1.529 2.396 -6.157 2.751 -8.732 2.85 -13.666 0.529 -27.399 2.356 -41.175 1.653 -3.563 -0.182 -7.601 -0.675 -11.114 0.046 -2.211 0.454 -7.535 0.332 -8.68 2.641 -1.548 3.125 2.679 4.707 3.261 7.439 0.532 2.495 -1.232 7.147 0.495 9.049 1.76 1.938 7.09 1.217 9.472 1.688 3.12 0.619 6.549 0.665 8.939 2.644 5.092 4.212 9.153 7.027 15.656 7.703 6.848 0.71 13.464 -0.589 20.046 -1.654 2.795 -0.453 5.258 -1.797 8.061 -2.492 3.057 -0.759 5.883 -1.205 8.687 -2.457 4.99 -2.23 10.663 -5.058 15.247 -8.526 4.371 -3.306 9.693 -7.151 8.938 -13.61 -0.595 -5.099 -5.257 -9.845 -8.07 -13.836 -1.54 -2.185 -2.372 -4.854 -3.876 -7.275 -1.546 -2.487 -3.848 -4.371 -5.372 -6.997 -3.106 -5.339 -6.187 -10.626 -10.127 -15.536 -1.645 -2.047 -3.355 -4.463 -5.271 -6.304 -1.238 -1.188 -2.564 -2.273 -3.513 -3.58 -0.748 -1.033 -1.278 -2.461 -2.263 -3.447 -2.027 -2.022 -4.501 -3.383 -6.568 -5.265 -2.117 -1.926 -4.144 -3.803 -6.452 -5.534 -2.18 -1.636 -6.334 -2.913 -9.215 -1.808 -2.962 1.136 -3.74 5.54 -3.14 8.405 0.606 2.904 3.602 3.971 6.401 3.938" FillRule="NonZero"/>
-                        </Path.Data>
-                    </Path>
-                    <Path Name="path6" Fill="#FFFBB03B" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
-                        <Path.Data>
-                            <PathGeometry Figures="m 547 213 c -5 195.449 -202 195.449 -315.54 195.449 -70.991 0 -128.54 -57.55 -128.54 -128.54 0 -70.991 57.549 -128.54 128.54 -128.54 C 302.451 151.369 381 262 547 213 Z" FillRule="NonZero"/>
-                        </Path.Data>
-                    </Path>
-                    <Ellipse Canvas.Left="124.3" Canvas.Top="31.5" Width="165" Height="165" Name="circle8" Fill="#FFFBB03B" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
-                    <Path Name="path10" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
-                        <Path.Data>
-                            <PathGeometry Figures="m 60.697 124.416 c 7.819 39.094 44.355 36.277 68.726 36.277 15.656 0 28.347 -12.692 28.347 -28.347 0 -15.656 -12.69 -28.347 -28.347 -28.347 -14.871 0 -30.469 22.551 -64.097 15.042 -2.398 0.001 -4.629 2.344 -4.629 5.375 z" FillRule="NonZero"/>
-                        </Path.Data>
-                    </Path>
-                    <Ellipse Canvas.Left="158.8" Canvas.Top="68" Width="40" Height="40" Name="circle12" Fill="#FFFFFFFF" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
-                    <Ellipse Canvas.Left="171.3" Canvas.Top="80.5" Width="15" Height="15" Name="circle14" Fill="#000000" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
-                    <!-- zavřené oko (spánek, Set-EyesClosed) -->
-                    <Path x:Name="SleepEye" Visibility="Hidden" Stroke="#FF000000" StrokeThickness="5"
-                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 160,86 C 166,98 192,98 198,86"/>
+                    <!-- Postavy ($characters): vidět je vždy jen jedna (Set-Character), ostatní jsou Collapsed -->
+                    <Canvas x:Name="CharDuck">
+                        <!-- nohy (path2, path4) i barvu těla (path6) animuje skript, aby šly zastavit (pauza, skrytí, spánek);
+                             nohy se posouvají přes TranslateTransform, ne Canvas.Left (animace pak nepřepočítává rozvržení) -->
+                        <Path Name="path2" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
+                            <Path.RenderTransform>
+                                <TranslateTransform/>
+                            </Path.RenderTransform>
+                            <Path.Data>
+                                <PathGeometry Figures="m 236.71 379.105 c 0 0 15.237 39.537 12.767 58.895 -12.767 -1.854 -32.535 -6.796 -32.535 -6.796 0 0 -9.678 -1.44 -11.738 0.824 -2.06 2.264 -22.239 2.678 -23.475 4.942 -1.235 2.265 -2.266 5.765 -2.06 8.442 0.207 2.677 -8.648 9.265 -7.619 10.913 1.029 1.648 0 2.06 9.678 2.678 9.678 0.617 80.929 1.441 84.84 0 3.912 -1.442 2.677 -12.149 2.471 -14.827 -0.207 -2.677 -18.122 -62.394 -21.623 -65.071 -3.501 -2.677 -4.943 -4.53 -6.59 -4.324 -1.647 0.206 -4.116 4.324 -4.116 4.324 z" FillRule="NonZero"/>
+                            </Path.Data>
+                        </Path>
+                        <Path Name="path4" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
+                            <Path.RenderTransform>
+                                <TranslateTransform/>
+                            </Path.RenderTransform>
+                            <Path.Data>
+                                <PathGeometry Figures="m 295.125 387.11 c 0.57 2.084 4.012 3.529 5.322 5.415 1.521 2.189 3.158 4.339 4.6 6.573 2.977 4.61 5.327 9.352 8.11 13.996 3.083 5.144 6.027 10.228 7.747 15.981 0.76 2.54 3.21 6.122 1.555 8.715 -1.529 2.396 -6.157 2.751 -8.732 2.85 -13.666 0.529 -27.399 2.356 -41.175 1.653 -3.563 -0.182 -7.601 -0.675 -11.114 0.046 -2.211 0.454 -7.535 0.332 -8.68 2.641 -1.548 3.125 2.679 4.707 3.261 7.439 0.532 2.495 -1.232 7.147 0.495 9.049 1.76 1.938 7.09 1.217 9.472 1.688 3.12 0.619 6.549 0.665 8.939 2.644 5.092 4.212 9.153 7.027 15.656 7.703 6.848 0.71 13.464 -0.589 20.046 -1.654 2.795 -0.453 5.258 -1.797 8.061 -2.492 3.057 -0.759 5.883 -1.205 8.687 -2.457 4.99 -2.23 10.663 -5.058 15.247 -8.526 4.371 -3.306 9.693 -7.151 8.938 -13.61 -0.595 -5.099 -5.257 -9.845 -8.07 -13.836 -1.54 -2.185 -2.372 -4.854 -3.876 -7.275 -1.546 -2.487 -3.848 -4.371 -5.372 -6.997 -3.106 -5.339 -6.187 -10.626 -10.127 -15.536 -1.645 -2.047 -3.355 -4.463 -5.271 -6.304 -1.238 -1.188 -2.564 -2.273 -3.513 -3.58 -0.748 -1.033 -1.278 -2.461 -2.263 -3.447 -2.027 -2.022 -4.501 -3.383 -6.568 -5.265 -2.117 -1.926 -4.144 -3.803 -6.452 -5.534 -2.18 -1.636 -6.334 -2.913 -9.215 -1.808 -2.962 1.136 -3.74 5.54 -3.14 8.405 0.606 2.904 3.602 3.971 6.401 3.938" FillRule="NonZero"/>
+                            </Path.Data>
+                        </Path>
+                        <Path Name="path6" Fill="#FFFBB03B" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
+                            <Path.Data>
+                                <PathGeometry Figures="m 547 213 c -5 195.449 -202 195.449 -315.54 195.449 -70.991 0 -128.54 -57.55 -128.54 -128.54 0 -70.991 57.549 -128.54 128.54 -128.54 C 302.451 151.369 381 262 547 213 Z" FillRule="NonZero"/>
+                            </Path.Data>
+                        </Path>
+                        <Ellipse Canvas.Left="124.3" Canvas.Top="31.5" Width="165" Height="165" Name="circle8" Fill="#FFFBB03B" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
+                        <Path Name="path10" Fill="#FFF15A24" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10">
+                            <Path.Data>
+                                <PathGeometry Figures="m 60.697 124.416 c 7.819 39.094 44.355 36.277 68.726 36.277 15.656 0 28.347 -12.692 28.347 -28.347 0 -15.656 -12.69 -28.347 -28.347 -28.347 -14.871 0 -30.469 22.551 -64.097 15.042 -2.398 0.001 -4.629 2.344 -4.629 5.375 z" FillRule="NonZero"/>
+                            </Path.Data>
+                        </Path>
+                        <Ellipse Canvas.Left="158.8" Canvas.Top="68" Width="40" Height="40" Name="circle12" Fill="#FFFFFFFF" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
+                        <Ellipse Canvas.Left="171.3" Canvas.Top="80.5" Width="15" Height="15" Name="circle14" Fill="#000000" StrokeThickness="5" Stroke="#FF000000" StrokeMiterLimit="10"/>
+                        <!-- zavřené oko (spánek, Set-EyesClosed) -->
+                        <Path x:Name="SleepEye" Visibility="Hidden" Stroke="#FF000000" StrokeThickness="5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 160,86 C 166,98 192,98 198,86"/>
+                    </Canvas>
+                    <!-- Slepice: hlava, oko a zobák jsou na stejném místě jako u kachny (převleky sedí bez posunu) -->
+                    <Canvas x:Name="CharChicken" Visibility="Collapsed">
+                        <Path Fill="#FFA8432A" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 440,250 C 445,190 465,140 495,112 C 515,150 505,215 465,270 Z"/>
+                        <Path Fill="#FF8E3220" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 450,262 C 470,200 500,152 535,132 C 545,172 530,232 480,282 Z"/>
+                        <Path Fill="#FFA8432A" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 455,276 C 490,242 524,218 546,214 C 544,252 514,290 470,302 Z"/>
+                        <Path x:Name="ChickenLegL" Fill="#FFF7A21B" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 222,385 L 238,385 L 238,450 L 262,466 L 256,474 L 234,462 L 230,476 L 220,476 L 222,460 L 192,470 L 186,461 L 222,448 Z">
+                            <Path.RenderTransform>
+                                <TranslateTransform/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <Path x:Name="ChickenLegR" Fill="#FFF7A21B" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 302,385 L 318,385 L 318,450 L 342,466 L 336,474 L 314,462 L 310,476 L 300,476 L 302,460 L 272,470 L 266,461 L 302,448 Z">
+                            <Path.RenderTransform>
+                                <TranslateTransform/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <Path x:Name="ChickenBody" Fill="#FFFFFBF0" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 150,265 C 150,195 230,170 300,195 C 360,215 420,215 470,185 C 520,240 500,400 330,402 C 215,404 150,345 150,265 Z"/>
+                        <Path Fill="#FFF3E3C6" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 265,262 C 310,232 395,235 440,268 C 420,325 345,348 292,328 C 268,316 255,290 265,262 Z"/>
+                        <Path Stroke="#FF000000" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 300,298 C 330,308 370,308 400,293 M 312,322 C 335,330 360,330 385,319"/>
+                        <Path x:Name="ChickenComb" Fill="#FFE0322B" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 160,60 C 145,35 165,15 185,32 C 188,6 222,2 226,30 C 236,6 270,10 264,42 C 285,42 290,62 272,72 C 240,60 195,58 160,60 Z"/>
+                        <Ellipse Canvas.Left="124.3" Canvas.Top="31.5" Width="165" Height="165" Fill="#FFFFFBF0" StrokeThickness="5" Stroke="#FF000000"/>
+                        <Path Fill="#FFF7A21B" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round" Data="M 133,96 L 80,114 L 133,130 Z"/>
+                        <Path Fill="#FFE0322B" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 132,130 C 118,150 124,178 140,176 C 156,174 156,150 148,132 Z"/>
+                        <Ellipse x:Name="ChickenEye" Canvas.Left="158.8" Canvas.Top="68" Width="40" Height="40" Fill="#FFFFFFFF" StrokeThickness="5" Stroke="#FF000000"/>
+                        <Ellipse x:Name="ChickenPupil" Canvas.Left="171.3" Canvas.Top="80.5" Width="15" Height="15" Fill="#FF000000" StrokeThickness="5" Stroke="#FF000000"/>
+                        <Path x:Name="ChickenSleepEye" Visibility="Hidden" Stroke="#FF000000" StrokeThickness="5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 160,86 C 166,98 192,98 198,86"/>
+                    </Canvas>
+                    <!-- Žlutý brýlatý skřítek: kreslený zepředu, hlava je na místě hlavy kachny -->
+                    <Canvas x:Name="CharMinion" Visibility="Collapsed">
+                        <Canvas x:Name="MinionLegL">
+                            <Canvas.RenderTransform>
+                                <TranslateTransform/>
+                            </Canvas.RenderTransform>
+                            <Path Fill="#FF2F6DB5" Stroke="#FF000000" StrokeThickness="4" Data="M 160,430 L 195,430 L 195,462 L 160,462 Z"/>
+                            <Path Fill="#FF222222" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                  Data="M 196,458 C 198,478 140,480 128,472 C 122,462 140,456 160,456 Z"/>
+                        </Canvas>
+                        <Canvas x:Name="MinionLegR">
+                            <Canvas.RenderTransform>
+                                <TranslateTransform/>
+                            </Canvas.RenderTransform>
+                            <Path Fill="#FF2F6DB5" Stroke="#FF000000" StrokeThickness="4" Data="M 225,430 L 260,430 L 260,462 L 225,462 Z"/>
+                            <Path Fill="#FF222222" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                  Data="M 261,458 C 263,478 205,480 193,472 C 187,462 205,456 225,456 Z"/>
+                        </Canvas>
+                        <Path x:Name="MinionBody" Fill="#FFFFD93B" Stroke="#FF000000" StrokeThickness="5"
+                              Data="M 100,155 C 100,97 147,50 205,50 C 263,50 310,97 310,155 L 310,390 C 310,438 265,450 205,450 C 145,450 100,438 100,390 Z"/>
+                        <Path Stroke="#FF2F6DB5" StrokeThickness="12" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 144,304 L 106,272 M 266,304 L 304,272"/>
+                        <Path Fill="#FF2F6DB5" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 100,335 L 140,335 L 140,300 L 270,300 L 270,335 L 310,335 L 310,390 C 310,438 265,450 205,450 C 145,450 100,438 100,390 Z"/>
+                        <Path Fill="#FF285F9E" Stroke="#FF000000" StrokeThickness="3" StrokeLineJoin="Round"
+                              Data="M 180,314 L 230,314 L 230,334 C 215,342 195,342 180,334 Z"/>
+                        <Ellipse Canvas.Left="144" Canvas.Top="304" Width="10" Height="10" Fill="#FF222222"/>
+                        <Ellipse Canvas.Left="256" Canvas.Top="304" Width="10" Height="10" Fill="#FF222222"/>
+                        <Path Fill="#FFFFD93B" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 102,262 C 78,282 70,315 80,342 L 96,338 C 90,316 94,294 104,284 Z"/>
+                        <Path Fill="#FFFFD93B" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 308,262 C 332,282 340,315 330,342 L 314,338 C 320,316 316,294 306,284 Z"/>
+                        <Ellipse Canvas.Left="72" Canvas.Top="332" Width="26" Height="26" Fill="#FF222222" Stroke="#FF000000" StrokeThickness="3"/>
+                        <Ellipse Canvas.Left="312" Canvas.Top="332" Width="26" Height="26" Fill="#FF222222" Stroke="#FF000000" StrokeThickness="3"/>
+                        <Path Fill="#FF333333" Stroke="#FF000000" StrokeThickness="4" Data="M 102,132 L 308,132 L 308,160 L 102,160 Z"/>
+                        <Ellipse Canvas.Left="132" Canvas.Top="92" Width="106" Height="106" Fill="#FFB0B3B8" StrokeThickness="5" Stroke="#FF000000"/>
+                        <Ellipse x:Name="MinionEye" Canvas.Left="148" Canvas.Top="108" Width="74" Height="74" Fill="#FFFFFFFF" StrokeThickness="4" Stroke="#FF000000"/>
+                        <Ellipse x:Name="MinionIris" Canvas.Left="160" Canvas.Top="128" Width="30" Height="30" Fill="#FF7A4A26" StrokeThickness="2" Stroke="#FF000000"/>
+                        <Ellipse x:Name="MinionPupil" Canvas.Left="168" Canvas.Top="136" Width="14" Height="14" Fill="#FF000000"/>
+                        <Canvas x:Name="MinionSleepEye" Visibility="Hidden">
+                            <Path Fill="#FFFFD93B" Stroke="#FF000000" StrokeThickness="4"
+                                  Data="M 148,145 C 148,124 165,108 185,108 C 205,108 222,124 222,145 C 222,166 205,182 185,182 C 165,182 148,166 148,145 Z"/>
+                            <Path Stroke="#FF000000" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 152,150 C 168,166 202,166 218,150"/>
+                        </Canvas>
+                        <Path Stroke="#FF000000" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 158,238 C 172,262 212,262 228,240"/>
+                        <Path x:Name="MinionHair" Stroke="#FF000000" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 205,52 C 202,32 194,22 184,16 M 216,50 C 218,30 224,20 232,14 M 228,54 C 238,38 248,32 260,30"/>
+                    </Canvas>
                     <!-- Sezónní převleky (Update-Costume). Čepice přesahují nad ořez kresby do volného místa pod bublinou
                          (Canvas ani Viewbox neořezávají); test hlídá, že nezasahují do bubliny ani do ocásku. -->
-                    <Canvas x:Name="CostumeSanta" Visibility="Collapsed">
-                        <Path Fill="#FFD62828" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
-                              Data="M 170,44 C 176,10 220,-6 258,0 C 290,4 312,22 322,44 C 304,38 286,40 272,52 Z"/>
-                        <Path Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
-                              Data="M 164,52 C 176,24 258,20 282,50 L 276,64 C 254,40 184,42 174,62 Z"/>
-                        <Ellipse Canvas.Left="311" Canvas.Top="35" Width="26" Height="26" Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4"/>
-                    </Canvas>
-                    <Canvas x:Name="CostumeWitch" Visibility="Collapsed">
-                        <Path Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
-                              Data="M 176,38 C 190,20 200,6 214,2 C 230,-2 252,2 272,14 C 256,14 244,22 246,38 Z"/>
-                        <Path Fill="#FF8E44AD" Stroke="#FF000000" StrokeThickness="2"
-                              Data="M 178,34 C 200,29 228,29 246,33 L 246,25 C 226,21 200,21 181,26 Z"/>
-                        <Ellipse Canvas.Left="134" Canvas.Top="29" Width="156" Height="22" Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4"/>
-                    </Canvas>
-                    <Canvas x:Name="CostumeGlasses" Visibility="Collapsed">
-                        <Path Stroke="#FF1E1E1E" StrokeThickness="7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 206,80 L 262,71"/>
-                        <Path Stroke="#FF1E1E1E" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 150,82 L 136,87"/>
-                        <Path Fill="#FF1E1E1E" Stroke="#FF000000" StrokeThickness="3"
-                              Data="M 148,77 C 148,66 206,66 208,78 C 210,96 200,108 180,108 C 160,108 148,96 148,77 Z"/>
-                        <Path Stroke="#B3FFFFFF" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Data="M 158,80 C 164,74 176,73 186,74"/>
+                    <Canvas x:Name="Costumes">
+                        <Canvas.RenderTransform>
+                            <!-- posun podle postavy (CostumeShift v $characters) -->
+                            <TranslateTransform x:Name="CostumeShift"/>
+                        </Canvas.RenderTransform>
+                        <Canvas x:Name="CostumeSanta" Visibility="Collapsed">
+                            <Path Fill="#FFD62828" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                  Data="M 170,44 C 176,10 220,-6 258,0 C 290,4 312,22 322,44 C 304,38 286,40 272,52 Z"/>
+                            <Path Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                  Data="M 164,52 C 176,24 258,20 282,50 L 276,64 C 254,40 184,42 174,62 Z"/>
+                            <Ellipse Canvas.Left="311" Canvas.Top="35" Width="26" Height="26" Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4"/>
+                        </Canvas>
+                        <Canvas x:Name="CostumeWitch" Visibility="Collapsed">
+                            <Path Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                  Data="M 176,38 C 190,20 200,6 214,2 C 230,-2 252,2 272,14 C 256,14 244,22 246,38 Z"/>
+                            <Path Fill="#FF8E44AD" Stroke="#FF000000" StrokeThickness="2"
+                                  Data="M 178,34 C 200,29 228,29 246,33 L 246,25 C 226,21 200,21 181,26 Z"/>
+                            <Ellipse Canvas.Left="134" Canvas.Top="29" Width="156" Height="22" Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4"/>
+                        </Canvas>
+                        <Canvas x:Name="CostumeGlasses" Visibility="Collapsed">
+                            <Path Stroke="#FF1E1E1E" StrokeThickness="7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 206,80 L 262,71"/>
+                            <Path Stroke="#FF1E1E1E" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 150,82 L 136,87"/>
+                            <Path Fill="#FF1E1E1E" Stroke="#FF000000" StrokeThickness="3"
+                                  Data="M 148,77 C 148,66 206,66 208,78 C 210,96 200,108 180,108 C 160,108 148,96 148,77 Z"/>
+                            <Path Stroke="#B3FFFFFF" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 158,80 C 164,74 176,73 186,74"/>
+                        </Canvas>
                     </Canvas>
                 </Canvas>
             </Canvas>
@@ -626,22 +943,23 @@ function Get-SituationKey {
 }
 
 function Get-SituationPhrase {
-    # Hlášky podle situace: denní doba a svátky, slabá baterie, ušlá vzdálenost, jak dlouho kachna běží.
+    # Hlášky podle situace: denní doba a svátky, slabá baterie, ušlá vzdálenost, jak dlouho kachna běží
+    # (hlášky aktuální postavy, Get-PhraseList).
     param([datetime]$Now, $Power, [double]$DistanceDip, [double]$UptimeMin)
     $list = New-Object System.Collections.Generic.List[string]
     foreach ($key in @(Get-SituationKey $Now)) {
-        foreach ($phrase in $situationPhrases[$key]) { $list.Add($phrase) }
+        foreach ($phrase in (Get-PhraseList 'Situation' $key)) { $list.Add($phrase) }
     }
     if ($null -ne $Power -and $Power.OnBattery -and $Power.Percent -le 20) {
-        foreach ($phrase in $situationPhrases.Battery) { $list.Add(($phrase -f $Power.Percent)) }
+        foreach ($phrase in (Get-PhraseList 'Situation' 'Battery')) { $list.Add(($phrase -f $Power.Percent)) }
     }
     if ($DistanceDip -ge 96 / 2.54 * 100) {   # aspoň metr
         $text = Get-DistanceText $DistanceDip
-        foreach ($phrase in $situationPhrases.Distance) { $list.Add(($phrase -f $text)) }
+        foreach ($phrase in (Get-PhraseList 'Situation' 'Distance')) { $list.Add(($phrase -f $text)) }
     }
     if ($UptimeMin -ge 60) {
         $text = Get-DurationText $UptimeMin
-        foreach ($phrase in $situationPhrases.Uptime) { $list.Add(($phrase -f $text)) }
+        foreach ($phrase in (Get-PhraseList 'Situation' 'Uptime')) { $list.Add(($phrase -f $text)) }
     }
     return $list.ToArray()
 }
@@ -657,11 +975,64 @@ function Get-Costume {
     return ''
 }
 
+function Get-ForcedCharacter {
+    # Postava vynucená kalendářem (pravidla From/To = měsíc * 100 + den, období může přejít přes Nový rok).
+    # Vrací jméno postavy, nebo '' (žádné pravidlo neplatí).
+    param([datetime]$Date, [object[]]$Calendar)
+    $day = $Date.Month * 100 + $Date.Day
+    foreach ($rule in $Calendar) {
+        if ($null -eq $rule) { continue }
+        if ($rule.From -le $rule.To) { $inside = $day -ge $rule.From -and $day -le $rule.To }
+        else { $inside = $day -ge $rule.From -or $day -le $rule.To }
+        if ($inside) { return [string]$rule.Character }
+    }
+    return ''
+}
+
+function Get-StartCharacter {
+    # Postava po startu: vynucená kalendářem, jinak z nastavení, jinak (třeba 'Náhodná') náhodná podle hodu Roll.
+    param([string[]]$Names, [string]$Preferred, [string]$Forced, [int]$Roll)
+    if ($Forced -and $Names -contains $Forced) { return $Forced }
+    if ($Preferred -and $Names -contains $Preferred) { return $Preferred }
+    return $Names[$Roll % $Names.Count]
+}
+
+function Get-NextCharacter {
+    # Další postava při střídání: popořadě (za poslední zase první), nebo náhodná jiná než současná.
+    param([string[]]$Names, [string]$Current, [bool]$InOrder, [int]$Roll)
+    if ($InOrder) { return $Names[([array]::IndexOf($Names, $Current) + 1) % $Names.Count] }
+    $others = @($Names | Where-Object { $_ -ne $Current })
+    if ($others.Count -eq 0) { return $Current }
+    return $others[$Roll % $others.Count]
+}
+
+function Get-Character {
+    # Popis aktuální postavy ($characters); před výběrem postavy kachna.
+    $name = [string]$state.Character
+    if ($name -and $characters.Contains($name)) { return $characters[$name] }
+    return $characters['Kachna']
+}
+
+function Get-PhraseList {
+    # Hlášky aktuální postavy: vlastní seznam ($characterPhrases), jinak kachní ($commonPhrases).
+    # U připomínek a situačních hlášek (Key) se vlastní hlášky hledají po jednotlivých klíčích.
+    param([string]$List, [string]$Key)
+    foreach ($set in @($characterPhrases[[string]$state.Character], $commonPhrases)) {
+        if ($null -eq $set -or -not $set.ContainsKey($List)) { continue }
+        $value = $set[$List]
+        if (-not $Key) { return , $value }
+        if ($value.ContainsKey($Key)) { return , $value[$Key] }
+    }
+    return , @()
+}
+
 function New-QuackWave {
-    # Krátké "kvák" jako WAV (16 bit, mono): pilovitý tón s klesající výškou, rychlý náběh a doznění.
+    # Hlas postavy jako WAV (16 bit, mono). Výchozí je kachní "kvák": pilovitý tón s klesající výškou, rychlý
+    # náběh a doznění. Notes = tóny @(sekundy, Hz na začátku, Hz na konci), 0 Hz = ticho (kokodák = několik tónů).
     # Vrací pole bajtů (přehraje se z paměti, žádný soubor není potřeba).
-    param([int]$SampleRate = 22050, [double]$Seconds = 0.22)
-    $count = [int]($SampleRate * $Seconds)
+    param([int]$SampleRate = 22050, [object[]]$Notes = @(, @(0.22, 520, 300)))
+    $counts = @($Notes | ForEach-Object { [int]($SampleRate * $_[0]) })
+    $count = ($counts | Measure-Object -Sum).Sum
     $stream = New-Object System.IO.MemoryStream
     $writer = New-Object System.IO.BinaryWriter $stream
     $ascii = [System.Text.Encoding]::ASCII
@@ -678,12 +1049,20 @@ function New-QuackWave {
     $writer.Write($ascii.GetBytes('data'))
     $writer.Write([int](2 * $count))
     $phase = 0.0
-    for ($i = 0; $i -lt $count; $i++) {
-        $t = $i / $count
-        $phase += (520 - 220 * $t) / $SampleRate              # výška klesá z 520 na 300 Hz
-        $saw = 2 * ($phase - [math]::Floor($phase)) - 1
-        $envelope = [math]::Min(1.0, $t * 25) * [math]::Pow(1 - $t, 1.5)
-        $writer.Write([int16][math]::Round(9000 * $saw * $envelope))
+    for ($n = 0; $n -lt $Notes.Count; $n++) {
+        $from = [double]$Notes[$n][1]
+        $to = [double]$Notes[$n][2]
+        for ($i = 0; $i -lt $counts[$n]; $i++) {
+            if ($from -le 0) {
+                $writer.Write([int16]0)
+                continue
+            }
+            $t = $i / $counts[$n]
+            $phase += ($from + ($to - $from) * $t) / $SampleRate   # výška se mění z From na To (kvák: 520 -> 300 Hz)
+            $saw = 2 * ($phase - [math]::Floor($phase)) - 1
+            $envelope = [math]::Min(1.0, $t * 25) * [math]::Pow(1 - $t, 1.5)
+            $writer.Write([int16][math]::Round(9000 * $saw * $envelope))
+        }
     }
     $writer.Flush()
     return , $stream.ToArray()
@@ -807,18 +1186,22 @@ function Show-Crumb {
 function Hide-Crumb { if ($null -ne $state.CrumbWindow) { $state.CrumbWindow.Hide() } }
 
 function Start-Sound {
-    # Přehraje kvák: kvak.wav vedle skriptu, jinak vygenerovaný zvuk (přehrávač vznikne až při prvním použití).
-    if ($null -eq $state.Player) {
+    # Přehraje hlas postavy: její soubor vedle skriptu (kachna: kvak.wav), jinak vygenerovaný zvuk
+    # (přehrávač každé postavy vznikne až při prvním použití).
+    $character = Get-Character
+    $player = $state.Players[$state.Character]
+    if ($null -eq $player) {
         if ($PSVersionTable.PSEdition -eq 'Core') { Add-Type -AssemblyName System.Windows.Extensions }   # SoundPlayer v PS 7
-        $file = Join-Path $PSScriptRoot 'kvak.wav'
-        if (Test-Path -LiteralPath $file) {
-            $state.Player = New-Object System.Media.SoundPlayer $file
+        $file = if ($character.WaveFile) { Join-Path $PSScriptRoot $character.WaveFile } else { '' }
+        if ($file -and (Test-Path -LiteralPath $file)) {
+            $player = New-Object System.Media.SoundPlayer $file
         } else {
-            $state.Player = New-Object System.Media.SoundPlayer (New-Object System.IO.MemoryStream (, (New-QuackWave)))
+            $player = New-Object System.Media.SoundPlayer (New-Object System.IO.MemoryStream (, (New-QuackWave -Notes $character.Voice)))
         }
-        $state.Player.Load()
+        $player.Load()
+        $state.Players[$state.Character] = $player
     }
-    $state.Player.Play()
+    $player.Play()
 }
 
 function Register-SystemEvent {
@@ -921,8 +1304,9 @@ function Get-WalkPlan {
     }
     if ($null -ne $state.Food) {
         # zobák nad rohlík: kachna jde vždy dopředu (zobákem napřed), rohlík pod tělem sní na místě
-        $right = Get-Clamped -Value ($state.Food.X - $config.BeakOffset) -Min $state.MinX -Max $state.MaxX
-        $left = Get-Clamped -Value ($state.Food.X - ($width - $config.BeakOffset)) -Min $state.MinX -Max $state.MaxX
+        $beak = (Get-Character).BeakOffset
+        $right = Get-Clamped -Value ($state.Food.X - $beak) -Min $state.MinX -Max $state.MaxX
+        $left = Get-Clamped -Value ($state.Food.X - ($width - $beak)) -Min $state.MinX -Max $state.MaxX
         if ($right -ge $state.X) { return [pscustomobject]@{ X = $right; Direction = 1; Goal = 'Food' } }
         if ($left -le $state.X) { return [pscustomobject]@{ X = $left; Direction = -1; Goal = 'Food' } }
         $dir = if ($state.Food.X -ge $state.X + $width / 2) { 1 } else { -1 }
@@ -979,7 +1363,7 @@ function Complete-Goal {
                 Start-Fall -Area $state.Area -X $state.X -Y $state.Y -Reason 'Cross'
                 return $false
             }
-            Show-Phrase $crossPhrases
+            Show-Phrase (Get-PhraseList 'Cross')
             return $true
         }
         'Food' {
@@ -1068,8 +1452,8 @@ function Complete-Fall {
     Set-WindowPosition
     $state.NextAreaCheck = 0.0   # monitor pod kachnou se ověří při příštím tepu
     if (-not $state.Paused) {
-        if ($state.FallReason -eq 'Drop') { Show-Phrase $dropPhrases }
-        elseif ($state.FallReason -eq 'Cross') { Show-Phrase $crossPhrases }
+        if ($state.FallReason -eq 'Drop') { Show-Phrase (Get-PhraseList 'Drop') }
+        elseif ($state.FallReason -eq 'Cross') { Show-Phrase (Get-PhraseList 'Cross') }
     }
     Update-Animation
     Start-Walk
@@ -1085,7 +1469,7 @@ function Start-Hop {
     $height = $config.HopHeight
     Start-WindowAnimation -Property 'Top' -From $state.Y -To ($state.Y - $height) -Seconds ([math]::Sqrt(2 * $height / $config.Gravity)) -Fps (Get-FpsConfig).Fall -Ease 'EaseOut'
     if (-not $Quiet) {
-        Show-Phrase $hopPhrases
+        Show-Phrase (Get-PhraseList 'Hop')
         Invoke-Quack
     }
     Update-Animation
@@ -1233,10 +1617,10 @@ function Restart-SpeechTimer {
 
 function Invoke-SpeechTick {
     if ($state.Paused) {
-        Show-Speech (Get-RandomPhrase $complaintPhrases $state.LastPhrase)
+        Show-Speech (Get-RandomPhrase (Get-PhraseList 'Complaint') $state.LastPhrase)
         return
     }
-    $phrases = $duckPhrases
+    $phrases = Get-PhraseList 'Main'
     if ((Get-Random -Maximum 4) -eq 0) {
         # zhruba každá čtvrtá hláška podle situace (denní doba, svátky, baterie, ušlá vzdálenost), pokud nějaká platí
         $extra = @(Get-SituationPhrase -Now (Get-Now) -Power $state.Power -DistanceDip $state.Distance -UptimeMin $clock.Elapsed.TotalMinutes)
@@ -1249,51 +1633,129 @@ function Update-Animation {
     # Nohy kmitají jen při pohybu, tělo mění barvu jen u bdělé kachny mimo pauzu a úsporný režim.
     # Zastavuje se přes Stop, ne Pause: i pozastavený storyboard by WPF nechalo tikat ~60x za sekundu.
     # DesiredFrameRate (Set-FrameRate) platí od Begin, proto se po změně snímků storyboard spustí znovu.
-    if (-not $state.AnimReady) { return }
+    # Storyboardy patří aktuální postavě ($state.Legs, $state.Glow; přepíná je Set-Character).
+    if (-not $state.AnimReady -or $null -eq $state.Legs) { return }
     $fps = Get-FpsConfig
     $moving = -not ($state.Hidden -or $state.Sleeping) -and ($state.Dragging -or $state.Motion -ne 'None')
     if ($moving) {
         if (-not $state.LegsRunning -or $state.LegsFps -ne $fps.Legs) {
-            Set-FrameRate $legs $fps.Legs
-            $legs.Begin($window, $true)
+            Set-FrameRate $state.Legs $fps.Legs
+            $state.Legs.Begin($window, $true)
             $state.LegsRunning = $true
             $state.LegsFps = $fps.Legs
         }
         # při pádu, poskoku a přenášení kmitají rychle, při chůzi podle rychlosti
         $ratio = if ($state.Dragging -or $state.Motion -ne 'Walk') { 4.0 } else { [math]::Max(0.2, $state.Speed / $config.LegsBaseSpeed) }
-        $legs.SetSpeedRatio($window, $ratio)
+        $state.Legs.SetSpeedRatio($window, $ratio)
     } elseif ($state.LegsRunning) {
-        $legs.Stop($window)   # nohy u sebe
+        $state.Legs.Stop($window)   # nohy u sebe
         $state.LegsRunning = $false
     }
     if ($fps.Glow -gt 0 -and -not ($state.Hidden -or $state.Sleeping -or $state.Paused)) {
         if (-not $state.GlowRunning -or $state.GlowFps -ne $fps.Glow) {
-            Set-FrameRate $glow $fps.Glow
-            $glow.Begin($window, $true)
+            Set-FrameRate $state.Glow $fps.Glow
+            $state.Glow.Begin($window, $true)
             $state.GlowRunning = $true
             $state.GlowFps = $fps.Glow
         }
     } elseif ($state.GlowRunning) {
-        $glow.Stop($window)
+        $state.Glow.Stop($window)
         $state.GlowRunning = $false
     }
 }
 
 function Set-EyesClosed {
+    # Zavřené / otevřené oči aktuální postavy.
     param([bool]$Closed)
+    $character = Get-Character
     $open = if ($Closed) { 'Hidden' } else { 'Visible' }
-    $ui.circle12.Visibility = $open
-    $ui.circle14.Visibility = $open
-    $ui.SleepEye.Visibility = if ($Closed) { 'Visible' } else { 'Hidden' }
+    foreach ($eye in $character.Eyes) { $ui[$eye].Visibility = $open }
+    $ui[$character.SleepEye].Visibility = if ($Closed) { 'Visible' } else { 'Hidden' }
 }
 
 function Update-Costume {
-    # Převlek podle data (Get-Costume), pokud jsou převleky zapnuté. Datum se kontroluje jednou za minutu.
+    # Převlek podle data (Get-Costume), pokud jsou převleky zapnuté a postavě sluší (Costumes). Posune se
+    # na její hlavu (CostumeShift); pod kloboukem se schová hřebínek nebo vlasy (Hats).
+    # Datum se kontroluje jednou za minutu.
+    $character = Get-Character
     $name = if ($state.Costumes) { Get-Costume (Get-Now) } else { '' }
+    if ($character.Costumes -notcontains $name) { $name = '' }
     $state.Costume = $name
     foreach ($costume in 'Santa', 'Witch', 'Glasses') {
         $ui["Costume$costume"].Visibility = if ($costume -eq $name) { 'Visible' } else { 'Collapsed' }
     }
+    $ui.CostumeShift.X = $character.CostumeShift[0]
+    $ui.CostumeShift.Y = $character.CostumeShift[1]
+    $hat = $name -in 'Santa', 'Witch'
+    foreach ($part in $character.Hats) { $ui[$part].Visibility = if ($hat) { 'Hidden' } else { 'Visible' } }
+}
+
+function Set-Character {
+    # Přepne postavu: vidět je jen její kresba, nohy a tělo animují její storyboardy, oči, převlek, hlas a hlášky
+    # jsou její. Poloha, směr, pohyb i stav (pauza, spánek, krmení …) zůstávají; nová postava pozdraví.
+    param([string]$Name)
+    if (-not $characters.Contains($Name)) { return }
+    $old = [string]$state.Character
+    if ($state.LegsRunning) {
+        $state.Legs.Stop($window)
+        $state.LegsRunning = $false
+    }
+    if ($state.GlowRunning) {
+        $state.Glow.Stop($window)
+        $state.GlowRunning = $false
+    }
+    $state.Character = $Name
+    $state.Legs = $characterAnimations[$Name].Legs
+    $state.Glow = $characterAnimations[$Name].Glow
+    foreach ($other in $characters.Keys) {
+        $ui[$characters[$other].Element].Visibility = if ($other -eq $Name) { 'Visible' } else { 'Collapsed' }
+    }
+    Set-EyesClosed $state.Sleeping
+    Update-Costume
+    $state.NextRotation = $clock.Elapsed.TotalSeconds + $config.CharacterRotations[$state.RotationName] * 60
+    # ikona v oznamovací oblasti ($script:, protože menu ikony volá přes funkce s parametrem $Tray)
+    if ($null -ne $script:tray) { $script:tray.Text = "$Name (dvojklik = přivolat k myši)" }
+    Update-Animation
+    if ($state.Motion -eq 'Walk') { Start-Walk }   # k rohlíku jde jiná postava jinak daleko (BeakOffset)
+    if ($old -and $old -ne $Name -and -not ($state.Hidden -or $state.Sleeping)) { Show-Phrase (Get-PhraseList 'Hello') }
+}
+
+function Select-Character {
+    # Volba v menu: konkrétní postava, nebo 'Náhodná' (jiná než současná).
+    param([string]$Name)
+    if ($Name -eq 'Náhodná') { $Name = Get-NextCharacter -Names @($characters.Keys) -Current $state.Character -InOrder $false -Roll (Get-Random -Maximum 1000) }
+    if ($state.Sleeping) { Set-Sleeping $false }
+    Set-Character $Name
+}
+
+function Set-CharacterRotation {
+    # Střídání postav (menu): další postava za zvolený čas od teď.
+    param([string]$Name)
+    if (-not $config.CharacterRotations.Contains($Name)) { return }
+    $state.RotationName = $Name
+    $state.NextRotation = $clock.Elapsed.TotalSeconds + $config.CharacterRotations[$Name] * 60
+}
+
+function Invoke-CharacterRotation {
+    # Je čas na další postavu? Ne, když postavu vynucuje kalendář (třeba o Vánocích kachna).
+    param([double]$Now)
+    if ($config.CharacterRotations[$state.RotationName] -le 0 -or $state.CalendarCharacter -or $Now -lt $state.NextRotation) { return }
+    Set-Character (Get-NextCharacter -Names @($characters.Keys) -Current $state.Character -InOrder $state.RotateInOrder -Roll (Get-Random -Maximum 1000))
+}
+
+function Update-CharacterCalendar {
+    # Postava vynucená kalendářem ($config.CharacterCalendar): přepne se jen na začátku období, ruční volba
+    # v menu pak platí, dokud období neskončí nebo nezačne jiné. Kontroluje se jednou za minutu.
+    $forced = Get-ForcedCharacter -Date (Get-Now) -Calendar $config.CharacterCalendar
+    if ($forced -eq $state.CalendarCharacter) { return }
+    $state.CalendarCharacter = $forced
+    if ($forced) { Set-Character $forced }
+}
+
+function Initialize-Character {
+    # Po startu: postava podle kalendáře, nastavení ($config.Character), nebo náhodná.
+    $state.CalendarCharacter = Get-ForcedCharacter -Date (Get-Now) -Calendar $config.CharacterCalendar
+    Set-Character (Get-StartCharacter -Names @($characters.Keys) -Preferred $config.Character -Forced $state.CalendarCharacter -Roll (Get-Random -Maximum 1000))
 }
 
 # ---------------------------------------------------------------------------
@@ -1304,10 +1766,10 @@ function Set-Paused {
     $state.Paused = $Paused
     $state.Resting = $false
     if ($Paused) {
-        Show-Speech (Get-RandomPhrase $complaintPhrases $state.LastPhrase)
+        Show-Speech (Get-RandomPhrase (Get-PhraseList 'Complaint') $state.LastPhrase)
         if ($state.Motion -eq 'Walk') { Stop-Motion }   # rozpracovaný pád nebo poskok doběhne
     } else {
-        Show-Speech (Get-RandomPhrase $resumePhrases $state.LastPhrase)
+        Show-Speech (Get-RandomPhrase (Get-PhraseList 'Resume') $state.LastPhrase)
     }
     Restart-SpeechTimer
     Update-Animation
@@ -1364,7 +1826,7 @@ function Invoke-RandomBehavior {
             Stop-Motion
             $state.Resting = $true
             $state.RestUntil = $Now + (Get-Random -Minimum 2.0 -Maximum 6.0)
-            if ((Get-Random -Maximum 2) -eq 0) { Show-Phrase $restPhrases }
+            if ((Get-Random -Maximum 2) -eq 0) { Show-Phrase (Get-PhraseList 'Rest') }
             Update-Animation
         }
         default {
@@ -1385,7 +1847,7 @@ function Set-Sleeping {
         $state.Sleeping = $true
         $state.Resting = $false
         Set-EyesClosed $true
-        Show-Speech (Get-RandomPhrase $sleepPhrases $state.LastPhrase) -Sticky
+        Show-Speech (Get-RandomPhrase (Get-PhraseList 'Sleep') $state.LastPhrase) -Sticky
         $speechTimer.Stop()
     } else {
         $state.Sleeping = $false
@@ -1393,8 +1855,8 @@ function Set-Sleeping {
         $now = $clock.Elapsed.TotalSeconds
         $state.LastActivity = $now
         $state.NextDecision = $now + 5
-        if ($state.Paused) { Show-Speech (Get-RandomPhrase $complaintPhrases $state.LastPhrase) }
-        else { Show-Speech (Get-RandomPhrase $wakePhrases $state.LastPhrase) }
+        if ($state.Paused) { Show-Speech (Get-RandomPhrase (Get-PhraseList 'Complaint') $state.LastPhrase) }
+        else { Show-Speech (Get-RandomPhrase (Get-PhraseList 'Wake') $state.LastPhrase) }
         Restart-SpeechTimer
     }
     Update-Animation
@@ -1405,7 +1867,7 @@ function Set-Sleeping {
 function Set-Hidden {
     # Skrytá kachna nic nedělá: okno je schované, časovače i animace stojí a program jen čeká.
     # Po zobrazení pokračuje tam, kde přestala (pozice, směr, pauza i rozpracovaný pád zůstávají).
-    param([bool]$Hidden, [string[]]$Phrases = $showPhrases)
+    param([bool]$Hidden, [string]$List = 'Show')
     if ($state.Hidden -eq $Hidden) { return }
     $state.HiddenByLock = $false
     if ($Hidden) {
@@ -1435,9 +1897,9 @@ function Set-Hidden {
     # aby se kachna neobjevila mimo obrazovku. Rozpracovaný pád pokračuje na svém monitoru.
     if ($state.Falling) { Set-WindowPosition } else { Update-WorkArea -Force }
     if ($state.Paused) {
-        Show-Speech (Get-RandomPhrase $complaintPhrases $state.LastPhrase)
+        Show-Speech (Get-RandomPhrase (Get-PhraseList 'Complaint') $state.LastPhrase)
     } elseif (-not $state.Falling) {
-        Show-Speech (Get-RandomPhrase $Phrases $state.LastPhrase)   # přivolaná kachna promluví až po přistání
+        Show-Speech (Get-RandomPhrase (Get-PhraseList $List) $state.LastPhrase)   # přivolaná kachna promluví až po přistání
     }
     $window.Show()
     Update-Animation
@@ -1480,7 +1942,7 @@ function Invoke-SessionSwitch {
         }
     } elseif ($Reason -in 'SessionUnlock', 'ConsoleConnect', 'RemoteConnect') {
         $state.Locked = $false
-        if ($state.HiddenByLock) { Set-Hidden $false -Phrases $welcomePhrases }
+        if ($state.HiddenByLock) { Set-Hidden $false -List 'Welcome' }
     }
 }
 
@@ -1536,7 +1998,7 @@ function Set-Reminder {
         $state.Pomodoro = $Enabled
         $state.PomodoroPhase = 'Work'
         $state.PomodoroDue = $now + $config.PomodoroMin.Work * 60
-        if ($Enabled -and -not $state.Hidden) { Show-Reminder $reminderPhrases.PomodoroStart }
+        if ($Enabled -and -not $state.Hidden) { Show-Reminder (Get-PhraseList 'Reminder' 'PomodoroStart') }
         return
     }
     if (-not $config.Reminders.Contains($Key)) { return }
@@ -1559,18 +2021,18 @@ function Invoke-Reminder {
     foreach ($key in @($config.Reminders.Keys)) {
         if ($state.Reminders[$key] -and $Now -ge $state.ReminderDue[$key]) {
             $state.ReminderDue[$key] = $Now + $config.Reminders[$key] * 60
-            Show-Reminder $reminderPhrases[$key]
+            Show-Reminder (Get-PhraseList 'Reminder' $key)
         }
     }
     if ($state.Pomodoro -and $Now -ge $state.PomodoroDue) {
         if ($state.PomodoroPhase -eq 'Work') {
             $state.PomodoroPhase = 'Break'
             $state.PomodoroDue = $Now + $config.PomodoroMin.Break * 60
-            Show-Reminder $reminderPhrases.PomodoroBreak
+            Show-Reminder (Get-PhraseList 'Reminder' 'PomodoroBreak')
         } else {
             $state.PomodoroPhase = 'Work'
             $state.PomodoroDue = $Now + $config.PomodoroMin.Work * 60
-            Show-Reminder $reminderPhrases.PomodoroWork
+            Show-Reminder (Get-PhraseList 'Reminder' 'PomodoroWork')
         }
     }
 }
@@ -1590,7 +2052,7 @@ function Set-Follow {
     param([bool]$On)
     $state.Follow = $On
     $state.Resting = $false
-    if ($On -and -not $state.Hidden) { Show-Phrase $followPhrases }
+    if ($On -and -not $state.Hidden) { Show-Phrase (Get-PhraseList 'Follow') }
     Restart-HeartTimer
     if ($state.Motion -eq 'Walk') { Start-Walk } else { Update-Motion }
 }
@@ -1635,14 +2097,14 @@ function Start-Feeding {
     $state.Food = [pscustomobject]@{ X = $x }
     $state.Eating = $false
     $state.Resting = $false
-    Show-Phrase $foodPhrases
+    Show-Phrase (Get-PhraseList 'Food')
     if ($state.Motion -eq 'Walk') { Start-Walk } else { Update-Motion }
 }
 
 function Start-Eating {
     $state.Eating = $true
     $state.EatUntil = $clock.Elapsed.TotalSeconds + $config.EatSec
-    Show-Phrase $eatPhrases
+    Show-Phrase (Get-PhraseList 'Eat')
     Invoke-Quack
     Update-Animation
 }
@@ -1716,8 +2178,8 @@ function Restart-HeartTimer {
 }
 
 function Invoke-Heartbeat {
-    # Tep kachny: nečinnost a spánek, bublina, napájení a převlek, pojistná kontrola monitoru, připomínky,
-    # rohlík, odpočinek a náhodné chování, "Pojď za myší". Samotný pohyb řídí animace WPF.
+    # Tep kachny: nečinnost a spánek, bublina, napájení, kalendář postav a převlek, pojistná kontrola monitoru,
+    # připomínky, střídání postav, rohlík, odpočinek a náhodné chování, "Pojď za myší". Samotný pohyb řídí animace WPF.
     $now = $clock.Elapsed.TotalSeconds
     $cursor = Get-CursorKey
     if ($cursor -ne $state.LastCursor) {
@@ -1741,6 +2203,7 @@ function Invoke-Heartbeat {
     if ($now -ge $state.NextPowerCheck) {
         $state.NextPowerCheck = $now + $config.PowerCheckSec
         Update-Power
+        Update-CharacterCalendar
         Update-Costume
     }
     if ($now -ge $state.NextAreaCheck -and -not $state.Crossing) {
@@ -1748,6 +2211,7 @@ function Invoke-Heartbeat {
         Update-WorkArea
     }
     Invoke-Reminder -Now $now
+    Invoke-CharacterRotation -Now $now
     if ($state.Eating -and $now -ge $state.EatUntil) { Complete-Eating }
     if ($state.Follow) { Update-Follow }
     elseif ($state.RandomBehavior -and $null -eq $state.Food) { Invoke-RandomBehavior -Now $now }
@@ -1761,9 +2225,12 @@ function Invoke-Heartbeat {
 # Gesture: nápověda vpravo v menu kachny. '-' = oddělovač.
 $menuSpec = @(
     @{ Text = { if ($state.Paused) { 'Pokračovat' } else { 'Pauza' } }; Action = { Switch-Pause }; Gesture = 'klepnutí' }
-    @{ Text = { if ($state.Hidden) { 'Zobrazit kachnu' } else { 'Skrýt kachnu' } }; Action = { Switch-Hidden } }
+    @{ Text = { if ($state.Hidden) { "Zobrazit $((Get-Character).Accusative)" } else { "Skrýt $((Get-Character).Accusative)" } }; Action = { Switch-Hidden } }
     @{ Text = 'Skrýt na…'; Choices = { $config.HideChoices.Keys }; Action = { param($Choice) Start-TimedHide $Choice } }
-    @{ Text = 'Přivolat kachnu k myši'; Action = { Invoke-Summon }; Tray = $true }
+    @{ Text = { "Přivolat $((Get-Character).Accusative) k myši" }; Action = { Invoke-Summon }; Tray = $true }
+    '-'
+    @{ Text = 'Postava'; Choices = { @($characters.Keys) + 'Náhodná' }; Check = { param($Choice) $Choice -eq $state.Character }; Action = { param($Choice) Select-Character $Choice } }
+    @{ Text = 'Střídat postavy'; Choices = { $config.CharacterRotations.Keys }; Check = { param($Choice) $Choice -eq $state.RotationName }; Action = { param($Choice) Set-CharacterRotation $Choice } }
     '-'
     @{ Text = 'Nakrmit rohlíkem'; Action = { Start-Feeding } }
     @{ Text = 'Pojď za myší'; Check = { $state.Follow }; Action = { Set-Follow (-not $state.Follow) } }
@@ -1785,9 +2252,10 @@ $menuSpec = @(
             @{ Text = 'Náhodné chování'; Check = { $state.RandomBehavior }; Action = { Set-RandomBehavior (-not $state.RandomBehavior) } }
             @{ Text = 'Chůze přes monitory'; Check = { $state.CrossMonitors }; Action = { Set-MonitorCrossing (-not $state.CrossMonitors) } }
             @{ Text = 'Sezónní převleky'; Check = { $state.Costumes }; Action = { Set-CostumeEnabled (-not $state.Costumes) } }
-            @{ Text = 'Zapnuté kachní hlášky'; Check = { $state.Phrases }; Action = { Set-PhrasesEnabled (-not $state.Phrases) } }
+            @{ Text = 'Střídat postavy popořadě'; Check = { $state.RotateInOrder }; Action = { $state.RotateInOrder = -not $state.RotateInOrder } }
+            @{ Text = { "Zapnuté $((Get-Character).Adjective) hlášky" }; Check = { $state.Phrases }; Action = { Set-PhrasesEnabled (-not $state.Phrases) } }
             @{ Text = 'Tichý režim (bez bublin)'; Check = { $state.Quiet }; Action = { Set-Quiet (-not $state.Quiet) } }
-            @{ Text = 'Zvuk (kvák)'; Check = { $state.Sound }; Action = { Set-Sound (-not $state.Sound) } }
+            @{ Text = { "Zvuk ($((Get-Character).SoundName))" }; Check = { $state.Sound }; Action = { Set-Sound (-not $state.Sound) } }
             @{ Text = 'Vždy navrchu'; Check = { $state.Topmost }; Action = { Set-Topmost (-not $state.Topmost) } }
         )
     }
@@ -1916,7 +2384,10 @@ try {
 
 $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $ui = @{}
-foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'path2', 'path4', 'path6', 'circle12', 'circle14', 'SleepEye', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') { $ui[$name] = $window.FindName($name) }
+foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses',
+    'CostumeShift', 'CharDuck', 'path2', 'path4', 'path6', 'circle12', 'circle14', 'SleepEye',
+    'CharChicken', 'ChickenLegL', 'ChickenLegR', 'ChickenBody', 'ChickenEye', 'ChickenPupil', 'ChickenSleepEye', 'ChickenComb',
+    'CharMinion', 'MinionLegL', 'MinionLegR', 'MinionBody', 'MinionEye', 'MinionIris', 'MinionPupil', 'MinionSleepEye', 'MinionHair') { $ui[$name] = $window.FindName($name) }
 $bubbleBrushes = @{
     Normal   = [System.Windows.Media.Brushes]::White
     Reminder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#FFDDEEFF'))
@@ -1952,6 +2423,13 @@ $state = @{
     CrossMonitors   = $config.CrossMonitors
     Costumes        = $config.Costumes
     Costume         = ''
+    Character       = ''          # aktuální postava ($characters), vybere ji Initialize-Character
+    CalendarCharacter = ''        # postava vynucená kalendářem (Update-CharacterCalendar)
+    RotationName    = $config.DefaultRotation
+    RotateInOrder   = $config.RotateInOrder
+    NextRotation    = 0.0
+    Legs            = $null       # storyboardy aktuální postavy ($characterAnimations)
+    Glow            = $null
     Sound           = $config.Sound
     Topmost         = $config.Topmost
     Quiet           = $false
@@ -1991,37 +2469,42 @@ $state = @{
     GlowRunning     = $false
     GlowFps         = 0
     CrumbWindow     = $null
-    Player          = $null
+    Players         = @{}         # přehrávač zvuku každé postavy (Start-Sound)
     SysHandlers     = $null
     ErrorShown      = $false
 }
 
-# Nohy: storyboard v kódu (ne v XAML), aby šel zastavit (Stop), zrychlit podle chůze a omezit snímky
-$legs = New-Object System.Windows.Media.Animation.Storyboard
-foreach ($leg in @(@{ Name = 'path2'; To = 35 }, @{ Name = 'path4'; To = -35 })) {
-    $anim = New-Object System.Windows.Media.Animation.DoubleAnimation
-    $anim.From = 0
-    $anim.To = $leg.To
-    $anim.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromSeconds(1))
+# Nohy a tělo: storyboardy v kódu (ne v XAML), aby šly zastavit (Stop), zrychlit podle chůze a omezit snímky.
+# Každá postava má svoje (nohy se posouvají o LegShift, tělo pomalu mění odstín jako ve v1); Set-Character
+# je přepíná ($state.Legs, $state.Glow).
+$characterAnimations = @{}
+foreach ($characterName in $characters.Keys) {
+    $character = $characters[$characterName]
+    $legsStoryboard = New-Object System.Windows.Media.Animation.Storyboard
+    for ($i = 0; $i -lt 2; $i++) {
+        $anim = New-Object System.Windows.Media.Animation.DoubleAnimation
+        $anim.From = 0
+        $anim.To = $character.LegShift * (1 - 2 * $i)   # nohy proti sobě
+        $anim.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromSeconds(1))
+        $anim.AutoReverse = $true
+        $anim.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
+        [System.Windows.Media.Animation.Storyboard]::SetTarget($anim, $ui[$character.Legs[$i]])
+        [System.Windows.Media.Animation.Storyboard]::SetTargetProperty($anim, (New-Object System.Windows.PropertyPath '(0).(1)',
+                ([System.Windows.UIElement]::RenderTransformProperty), ([System.Windows.Media.TranslateTransform]::XProperty)))
+        $legsStoryboard.Children.Add($anim)
+    }
+    $glowStoryboard = New-Object System.Windows.Media.Animation.Storyboard
+    $anim = New-Object System.Windows.Media.Animation.ColorAnimation
+    $anim.To = [System.Windows.Media.ColorConverter]::ConvertFromString($character.Glow)
+    $anim.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromSeconds(3))
     $anim.AutoReverse = $true
     $anim.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
-    [System.Windows.Media.Animation.Storyboard]::SetTarget($anim, $ui[$leg.Name])
+    [System.Windows.Media.Animation.Storyboard]::SetTarget($anim, $ui[$character.Body])
     [System.Windows.Media.Animation.Storyboard]::SetTargetProperty($anim, (New-Object System.Windows.PropertyPath '(0).(1)',
-            ([System.Windows.UIElement]::RenderTransformProperty), ([System.Windows.Media.TranslateTransform]::XProperty)))
-    $legs.Children.Add($anim)
+            ([System.Windows.Shapes.Shape]::FillProperty), ([System.Windows.Media.SolidColorBrush]::ColorProperty)))
+    $glowStoryboard.Children.Add($anim)
+    $characterAnimations[$characterName] = @{ Legs = $legsStoryboard; Glow = $glowStoryboard }
 }
-
-# Tělo pomalu mění odstín žluté (jako ve v1); také v kódu, aby šlo zastavit (pauza, spánek, skrytí, úsporný režim)
-$glow = New-Object System.Windows.Media.Animation.Storyboard
-$anim = New-Object System.Windows.Media.Animation.ColorAnimation
-$anim.To = [System.Windows.Media.ColorConverter]::ConvertFromString('#FFFBE03B')
-$anim.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromSeconds(3))
-$anim.AutoReverse = $true
-$anim.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
-[System.Windows.Media.Animation.Storyboard]::SetTarget($anim, $ui.path6)
-[System.Windows.Media.Animation.Storyboard]::SetTargetProperty($anim, (New-Object System.Windows.PropertyPath '(0).(1)',
-        ([System.Windows.Shapes.Shape]::FillProperty), ([System.Windows.Media.SolidColorBrush]::ColorProperty)))
-$glow.Children.Add($anim)
 
 # Časovače (pohyb samotný řídí animace WPF, PowerShell běží jen jednou za sekundu)
 $heartTimer = New-Object System.Windows.Threading.DispatcherTimer    # interval nastavuje Restart-HeartTimer
@@ -2089,6 +2572,7 @@ $window.Add_SourceInitialized({
 })
 
 $window.Add_Loaded({
+    Initialize-Character
     $now = $clock.Elapsed.TotalSeconds
     $state.AnimReady = $true
     $state.LastActivity = $now
@@ -2101,7 +2585,7 @@ $window.Add_Loaded({
     Update-Costume
     Initialize-Reminder
     try { Register-SystemEvent } catch { Write-Warning "Kachna: události Windows nejsou k dispozici, stačí pojistné kontroly: $_" }
-    Show-Speech (Get-RandomPhrase $duckPhrases '')
+    Show-Speech (Get-RandomPhrase (Get-PhraseList 'Main') '')
     Update-Animation
     Restart-HeartTimer
     Restart-SpeechTimer
