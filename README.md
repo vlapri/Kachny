@@ -41,11 +41,21 @@ Ovládání (Controls):
 | Dvojklik na kachnu (Double-click) | Poskok. (A hop.) |
 | Přetažení levým tlačítkem (Left drag) | Přesun kachny kamkoli, i na jiný monitor. Po puštění spadne na spodní okraj obrazovky. (Move the duck anywhere, even to another monitor. When released, it falls to the bottom of the screen.) |
 | Najetí myší na bublinu (Hover over the bubble) | Bublina se na chvíli schová, takže jde kliknout na okno pod ní. (The bubble hides for a moment so you can click the window below it.) |
-| Pravé tlačítko na kachně (Right click) | Menu: Pauza, Skrýt kachnu, Skrýt na…, Nakrmit rohlíkem, Pojď za myší, Rychlost chůze, Rychlost hlášek, Úsporný režim, Připomínky, Nastavení, Ukončit. (Menu: Pause, Hide duck, Hide for…, Feed a bread roll, Follow the mouse, Walking speed, Phrase speed, Power saving, Reminders, Settings, Exit.) |
+| Pravé tlačítko na kachně (Right click) | Menu: Pauza, Skrýt kachnu, Skrýt na…, Postava, Střídat postavy, Nakrmit rohlíkem, Pojď za myší, Rychlost chůze, Rychlost hlášek, Úsporný režim, Připomínky, Nastavení, Ukončit. (Menu: Pause, Hide duck, Hide for…, Character, Rotate characters, Feed a bread roll, Follow the mouse, Walking speed, Phrase speed, Power saving, Reminders, Settings, Exit.) |
 | Ikona vedle hodin (Tray icon) | Stejné menu + „Přivolat kachnu k myši“, dvojklik také přivolá kachnu. Tady se skrytá kachna zase zobrazí („Zobrazit kachnu“). Skrytá kachna stojí, mlčí a nezatěžuje počítač. (Same menu + "Summon duck to mouse", double-click summons it too. A hidden duck is shown again here ("Show duck"). While hidden, the duck stands still, stays quiet and uses no CPU.) |
 
-V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, zapnuté kachní hlášky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu.
-(Random behaviour, walking across monitors, seasonal costumes, duck phrases on, quiet mode (no bubbles), sound (quack), always on top.)
+V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, střídat postavy popořadě, zapnuté kachní hlášky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu.
+(Random behaviour, walking across monitors, seasonal costumes, rotate characters in order, duck phrases on, quiet mode (no bubbles), sound (quack), always on top.)
+
+Postavy (Characters): kachna, slepice a žlutý brýlatý skřítek. Každá postava má vlastní hlášky, hlas a převleky.
+Po startu se postava vybere náhodně, v menu „Postava“ jde změnit a „Střídat postavy“ ji mění každých 15 minut, hodinu
+nebo 3 hodiny (náhodně, nebo popořadě). O Vánocích (1. 12. – 6. 1.) chodí kachna s mikulášskou čepicí. Výchozí postavu
+a kalendář jde změnit na začátku skriptu v `$config` (`Character`, `CharacterCalendar`).
+(Duck, hen and a yellow goggled sprite, each with its own phrases, voice and costumes. A random character is picked at
+start; change it in the "Character" menu, or let "Rotate characters" switch it every 15 minutes, hour or 3 hours. At
+Christmas the duck with a Santa hat is forced. Change the default and the calendar in `$config` at the top of the script.)
+
+![Postavy (Characters)](./postavy.png)
 
 Novinky ve v2 (What's new in v2):
 
@@ -55,6 +65,7 @@ Novinky ve v2 (What's new in v2):
 - hlášky se neopakují hned po sobě, kachna se občas sama zastaví, otočí nebo změní tempo (no phrase twice in a row, random stops, turns and pace changes),
 - hlášky podle denní doby, svátků, stavu baterie a ušlé vzdálenosti (phrases depending on the time of day, holidays, battery and the distance walked),
 - připomínky: pitný režim, protažení, Pomodoro – po startu zapnuté (reminders: drink water, stretch, Pomodoro – on by default),
+- postavy: kachna, slepice, žlutý brýlatý skřítek – náhodně, z menu, střídání, podle kalendáře (characters: duck, hen, yellow goggled sprite – random, from the menu, rotating, by calendar),
 - krmení rohlíkem, „Pojď za myší“, poskok, sezónní převleky (čepice v prosinci, brýle v létě), volitelný zvuk (feeding, follow the mouse, hop, seasonal costumes, optional sound),
 - šetří počítač: pohyb řídí animace WPF s omezeným počtem snímků, při zamčení PC se schová, po 10 minutách bez pohybu myši usne, na baterii přejde do úsporného režimu (saves resources: movement driven by frame-limited WPF animations, hides when the PC is locked, falls asleep after 10 minutes without mouse movement, power saving on battery),
 - po změně rozlišení nebo odpojení monitoru kachna nezmizí mimo obrazovku (the duck stays visible after a resolution change or when a monitor is disconnected).

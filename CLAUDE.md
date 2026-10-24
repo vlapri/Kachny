@@ -14,7 +14,7 @@ Komunikace s uživatelem, texty v UI i komentáře v kódu jsou **česky**. Kach
 | `kvak.wav` (volitelný) | Když leží vedle skriptu, přehraje se místo vygenerovaného kváknutí. V repozitáři není. |
 | `powershell_kachna.ps1` | Původní v1. **Neměnit**, pokud o to uživatel výslovně nepožádá. |
 | `linux_kachna*.sh` | Linuxová verze (bash). Uživatel teď pracuje jen s PowerShell verzí – neměnit bez požádání. |
-| `*.gif`, `coffee_qr.png` | Obrázky pro README. |
+| `*.gif`, `coffee_qr.png`, `postavy.png` | Obrázky pro README. |
 
 ## Konvence souborů (hlídají je testy)
 
@@ -37,7 +37,8 @@ Komunikace s uživatelem, texty v UI i komentáře v kódu jsou **česky**. Kach
 
 ## Architektura v2 (`powershell_kachna_v2.ps1`)
 
-Pořadí sekcí: kontrola prostředí → `$config` → hlášky → XAML (kachna, rohlík) → čisté funkce → funkce závislé na Windows
+Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterPhrases`, `$commonPhrases`) → postavy (`$characters`)
+→ XAML (postavy, rohlík) → čisté funkce → funkce závislé na Windows
 → stav a pohyb → bublina, animace a chování → menu/ikona → sestavení okna, storyboardy, časovače, události → `Show()` + `Dispatcher.PushFrame`.
 
 - **Stav** je v hashtable `$state` (pozice `X`/`Y` v DIP, `Direction`, `Motion`, `Paused`, `Hidden`, `Sleeping`, `Dragging`,
@@ -94,14 +95,26 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky → XAML (kachn
   Probudí ji pohyb myši, klepnutí, přivolání nebo připomínka.
 - **Zrcadlení:** obsah okna je nakreslený pro chůzi doprava; `RootFlip.ScaleX = Direction` zrcadlí kachnu i bublinu,
   `TextFlip` vrací text zpět, aby byl čitelný.
+- **Postavy** (`$characters`: Kachna, Slepice, Skřítek): kresby jsou v XAML vedle sebe (`CharDuck`, `CharChicken`, `CharMinion`),
+  vidět je jen jedna. Popis postavy říká, které prvky jsou nohy (`Legs` + `LegShift`), tělo (`Body` + `Glow`), oči (`Eyes`,
+  `SleepEye`), co schovat pod klobouk (`Hats`), které převleky jí sluší a o kolik je posunout (`Costumes`, `CostumeShift` →
+  `TranslateTransform` `CostumeShift`), `BeakOffset` pro krmení, hlas (`Voice` = tóny pro `New-QuackWave`, `WaveFile`) a slova
+  do menu (`Accusative`, `Adjective`, `SoundName`). Každá postava má svoje storyboardy (`$characterAnimations`), aktuální jsou
+  v `$state.Legs`/`$state.Glow`. `Set-Character` přepne kresbu, storyboardy, oči, převlek, ikonu a pozdraví (`Hello`); poloha
+  a stav zůstávají. Hlášky bere `Get-PhraseList` (vlastní seznam postavy, jinak kachní; připomínky a situace po klíčích).
+  Slepice mluví v ženském rodě, skřítek v mužském (test hlídá). Start: `Initialize-Character` (kalendář
+  `CharacterCalendar` → `Character` → náhodně), střídání `Invoke-CharacterRotation` v tepu (ne během období z kalendáře),
+  kalendář `Update-CharacterCalendar` 1× za minutu přepne jen na začátku období (ruční volba pak platí).
+  Nová postava = kresba `Char…` v XAML, záznam v `$characters`, jména prvků do `FindName` a hlášky v `$characterPhrases`.
 - **Kresba:** tvary kachny jsou převzaté z v1 beze změny; plátno 640×480 je oříznuté na kresbu (`Canvas.Left=-54`,
   `Canvas.Top=-25`, `DuckBox` 500×456) a Viewbox ho zmenší na 0,5 (stejná velikost jako v1). Při změně tvarů
-  uprav ořez – test „ořez neusekne kachnu“ to hlídá. Převleky (`CostumeSanta`/`Witch`/`Glasses`, `Get-Costume` podle data,
+  uprav ořez – test „ořez neusekne kachnu“ to hlídá (u ostatních postav „ořez ji neusekne“; nahoru smí přesahovat třeba hřebínek). Převleky (`CostumeSanta`/`Witch`/`Glasses`, `Get-Costume` podle data,
   menu, výchozí zapnuto) přesahují nad ořez do volného místa pod bublinou (Canvas ani Viewbox neořezávají) – test hlídá,
   že nezasahují do bubliny, ocásku ani mimo okno.
 - **Krmení:** rohlík je malé samostatné okno (`$crumbXaml`, `Show-Crumb`, vznikne až při prvním krmení), padá stejnou křivkou.
   Kachna jde k němu zobákem napřed (`BeakOffset`), `EatSec` jí, pak poskočí. Přenesení na jiný monitor rohlík zruší.
-- **Zvuk** (výchozí vypnuto): `New-QuackWave` vygeneruje WAV do paměti, `Start-Sound` přehraje (`kvak.wav` má přednost).
+- **Zvuk** (výchozí vypnuto): `New-QuackWave` vygeneruje WAV do paměti podle hlasu postavy, `Start-Sound` přehraje
+  (přehrávač pro každou postavu, u kachny má přednost `kvak.wav`).
 - **Menu:** obě menu (WPF `ContextMenu` na kachně, WinForms `ContextMenuStrip` u ikony) se staví z jednoho seznamu `$menuSpec`
   (`Text` nebo scriptblock, `Action`, `Check`, `Choices`, `Items`, `Tray` = jen u ikony, `Gesture`). `Add-MenuEntry` je postaví,
   `Update-MenuState` při otevření nastaví popisky a zaškrtnutí, `Invoke-MenuEntry` provede akci. Podmenu nemají vlastní akci
@@ -109,6 +122,8 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky → XAML (kachn
 
 ### Úskalí PowerShellu s WPF
 
+- Proměnné se hledají i v oborech volajících funkcí: menu ikony volá akce přes funkce s parametrem `$Tray`, proto
+  `Set-Character` sahá na ikonu přes `$script:tray`.
 - V obsluze události je `$this` = odesílatel a `$_` = argumenty události (platí i pro scriptblock převedený na delegát
   se dvěma parametry, např. `[Microsoft.Win32.SessionSwitchEventHandler]{ ... $_.Reason }`).
 - `$x = if (...) { $kolekce }` prázdnou kolekci (třeba `MenuItem.Items`) rozbalí na `$null` – přiřazuj uvnitř větví.
@@ -135,7 +150,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\Test-KachnaV2.ps1     
   čisté funkce, chůzi na monitorech 1080p/1200p/2K/4K se škálováním 100–200 %, snímky a tep (šetření CPU), úsporný režim,
   pauzu a stížnosti, klepnutí a dvojklik, přetažení, pád, přivolání, změnu monitorů za běhu (události i pojistku), chůzi přes
   monitory, náhodné chování, rychlost hlášek, bublinu a tichý režim, skrytí (i na čas), zamčení PC, uspání PC, spánek při
-  nečinnosti, „Pojď za myší“, krmení, připomínky, situační hlášky, převleky, zvuk, menu a PSScriptAnalyzer (v2 i měřicí skript).
+  nečinnosti, „Pojď za myší“, krmení, připomínky, situační hlášky, převleky, postavy (kresba, hlášky, přepnutí, střídání,
+  kalendář), zvuk, menu a PSScriptAnalyzer (v2 i měřicí skript).
 - Když `pwsh` chybí (Linux): stáhni tarball z GitHub releases PowerShellu do scratchpadu a spusť ho odtud.
   PSGallery může být v sandboxu blokovaná – PSScriptAnalyzer jde stáhnout jako `.nupkg` z GitHub releases
   (`PowerShell/PSScriptAnalyzer`), rozbalit a předat cestu přes `KACHNA_PSSA`.
@@ -152,6 +168,7 @@ Vykreslení WPF, skutečné DPI, chování myši a události Windows se na Linux
    (po vypnutí „Chůze přes monitory“ se otočí).
 5. Pravé tlačítko → menu; ikona vedle hodin → totéž + přivolání. Vyzkoušet „Skrýt na…“, „Nakrmit rohlíkem“, „Pojď za myší“,
    úsporný režim, připomínky, převleky (změnou data), tichý režim, zvuk a „Vždy navrchu“.
+   Postavy: přepnutí v menu za chůze (nohy a tělo se hýbou, bublina u hlavy), převleky na slepici a skřítkovi, zvuk každé postavy.
 6. Skrýt kachnu → zmizí a proces má ~0 % CPU; „Zobrazit kachnu“ u ikony → objeví se na stejném místě, ozve se a jde dál;
    přivolání skryté kachny ji ukáže u kurzoru.
 7. Zamčení PC (Win+L) → kachna zmizí, po odemčení „Vítej zpět!“; 10 minut bez myši → usne (Zzz), pohyb myši ji probudí.
