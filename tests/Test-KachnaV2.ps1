@@ -297,8 +297,9 @@ function Set-BubblePlace {
     # Bublina a ocásek v souřadnicích kresby; Drop = posun bubliny dolů u nižší postavy (BubbleDrop, DIP).
     param([double]$Drop = 0)
     $script:bubbleLimitY = (ConvertTo-LayerPoint 0 ($bubbleBottom + $Drop))[1]
-    $script:tailTri = [double[][]]@($tailPoints | ForEach-Object { , [double[]](ConvertTo-LayerPoint ($bubbleLeft + $_[0]) ($bubbleBottom + $Drop + $_[1])) })
+    $script:tailTri = [double[][]]@($tailPoints | ForEach-Object { , [double[]](ConvertTo-LayerPoint ($bubbleLeft + $tailScaleX * $_[0]) ($bubbleBottom + $Drop + $_[1])) })
 }
+$tailScaleX = 1.0
 Set-BubblePlace
 $winTopLeft = ConvertTo-LayerPoint $winW 0                           # okno v souřadnicích kresby (x je překlopené)
 $winBottomRight = ConvertTo-LayerPoint 0 $winH
@@ -373,6 +374,52 @@ foreach ($name in $characters.Keys) {
 Assert-True ($v2Text.Contains('RotateTransform]::AngleProperty') -and $v2Text.Contains('$ui.CostumeTilt')) 'kolébání animuje storyboard nohou (trup i převleky, jen při pohybu)'
 Set-BubblePlace
 Assert-True ($byName['BubbleShift'].LocalName -eq 'TranslateTransform' -and $byName['BubbleShift'].ParentNode.ParentNode -eq $byName['SpeechBubble']) 'bublina se dá posunout dolů (BubbleShift)'
+
+# Velikost postavy: okno, kresba a bublina se zmenší jako v Set-CharacterSize (100 % = XAML)
+$config = Get-AssignedValue $v2.Ast 'config'
+$full = $config.CharacterSizes['100 %']
+Assert-True ($config.DefaultSize -eq '100 %' -and $full.Scale -eq 1 -and $full.Height -eq $winH -and $winW -eq 260 -and $vbW -eq 250 -and $vbH -eq 228 -and $full.FontSize -eq [double]$byName['SpeechText'].FontSize -and [double]$bubble.Width -eq 230) 'velikost 100 % (výchozí) odpovídá XAML'
+Assert-True ($byName['BubbleTailScale'].LocalName -eq 'ScaleTransform' -and $byName['DuckViewbox'].LocalName -eq 'Viewbox') 'ocásek bubliny a kresba jdou zmenšit (BubbleTailScale, DuckViewbox)'
+function Set-SizeLayout {
+    # Rozměry jako po Set-CharacterSize: okno 260 * s, kresba 250 x 228 * s, bublina 230 * s, ocásek zúžený.
+    param($Size)
+    $s = [double]$Size.Scale
+    $script:winW = [math]::Round(260 * $s); $script:winH = [double]$Size.Height
+    $script:vbW = 250 * $s; $script:vbH = 228 * $s
+    $script:scaleX = $vbW / $boxW; $script:scaleY = $vbH / $boxH
+    $script:offX = ($winW - $vbW) / 2; $script:offY = $winH - $vbH
+    $script:bubbleLeft = $winW - [double]($bubble.Margin -split ',')[2] - [math]::Round(230 * $s)
+    $script:bubbleBottom = $offY - $tailRow
+    $script:tailScaleX = $s
+    $script:winTopLeft = ConvertTo-LayerPoint $winW 0
+    $script:winBottomRight = ConvertTo-LayerPoint 0 $winH
+}
+foreach ($sizeName in $config.CharacterSizes.Keys) {
+    $size = $config.CharacterSizes[$sizeName]
+    Set-SizeLayout $size
+    $problems = @()
+    foreach ($name in $characters.Keys) {
+        $c = $characters[$name]
+        Set-BubblePlace ([double]$c.BubbleDrop * $size.Scale)
+        $tiltArgs = @{}
+        $top = Get-ShapeCheck $byName[$c.Element]
+        if ($c.Tilt) {
+            $rotate = $byName[$c.Tilt].SelectSingleNode("./*[local-name()='Canvas.RenderTransform']/*[local-name()='RotateTransform']")
+            $tiltArgs = @{ Tilt = $c.TiltAngle; CenterX = [double]$rotate.CenterX; CenterY = [double]$rotate.CenterY }
+            $top = Get-ShapeCheck $byName[$c.Tilt] @tiltArgs
+        }
+        $tailTip = ($tailTri | ForEach-Object { $_[1] } | Measure-Object -Maximum).Maximum
+        if (-not ($top.MinY -ge $bubbleLimitY -and $top.MinTail -gt 0 -and $top.InWindow)) { $problems += "$name do bubliny" }
+        if (($top.MinY - $tailTip) * $scaleY -gt 30) { $problems += "$name daleko od bubliny" }
+        foreach ($costume in $c.Costumes) {
+            $cs = Get-ShapeCheck $byName["Costume$costume"] -Dx $c.CostumeShift[0] -Dy $c.CostumeShift[1] @tiltArgs
+            if (-not ($cs.MinY -ge $bubbleLimitY -and $cs.MinTail -gt 0 -and $cs.InWindow)) { $problems += "$name + $costume" }
+        }
+    }
+    Assert-True ($problems.Count -eq 0 -and $winW - $vbW -le 20 -and [math]::Round(230 * $size.Scale) -le $winW - 6) ("velikost {0}: okno {1} x {2}, postava dojde k okraji, bublina u hlavy, nic nezasahuje do bubliny {3}" -f $sizeName, $winW, $winH, ($problems -join ', '))
+}
+Set-SizeLayout $full
+Set-BubblePlace
 Assert-True ($byName['CostumeShift'].LocalName -eq 'TranslateTransform' -and $byName['Costumes'].SelectNodes("./*[local-name()='Canvas']").Count -eq 3) 'převleky se posouvají společně (CostumeShift)'
 foreach ($costume in 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') {
     $s = Get-ShapeCheck $byName[$costume]
@@ -482,6 +529,17 @@ foreach ($name in 'Skřítek', 'Tučňák', 'Robot') {
 $tooLong = @($allPhrases | Where-Object { [math]::Ceiling(($_.Length + 20) * 7.2 / 206) -gt 5 })
 $tooLong | ForEach-Object { Write-Host "          příliš dlouhá: $_" -ForegroundColor Red }
 Assert-True ($tooLong.Count -eq 0) "všechny hlášky se vejdou do bubliny (max 5 řádků, $($allPhrases.Count) hlášek)"
+# Menší postava: užší bublina (230 * s), menší písmo, víc řádků; řádků se vejde tolik, kolik dovolí výška okna
+foreach ($sizeName in $config.CharacterSizes.Keys) {
+    $size = $config.CharacterSizes[$sizeName]
+    $charW = 7.2 / 14 * $size.FontSize                       # šířka znaku podle písma (14 b. = 7,2 DIP)
+    $lineH = 1.33 * $size.FontSize                           # výška řádku
+    $textW = [math]::Round(230 * $size.Scale) - 24           # bez odsazení (2 x 10) a okraje (2 x 2)
+    $maxLines = [math]::Floor(($size.Height - 228 * $size.Scale - 16 - 16) / $lineH)   # bez ocásku, odsazení a okraje
+    $long = @($allPhrases | Where-Object { [math]::Ceiling(($_.Length + 20) * $charW / $textW) -gt $maxLines })
+    $long | Select-Object -First 3 | ForEach-Object { Write-Host "          příliš dlouhá pro $($sizeName): $_" -ForegroundColor Red }
+    Assert-True ($long.Count -eq 0 -and $size.FontSize -ge 12) "velikost $($sizeName): hlášky se vejdou do bubliny (písmo $($size.FontSize) b., nejvýš $maxLines řádků)"
+}
 
 # ===========================================================================
 # Funkce ze skriptu + náhradní objekty místo WPF, WinForms a Windows
@@ -496,8 +554,10 @@ $window | Add-Member -MemberType ScriptMethod -Name Hide -Value { $this.IsVisibl
 $window | Add-Member -MemberType ScriptMethod -Name Show -Value { $this.IsVisible = $true; $this.ShownAt = [pscustomobject]@{ Left = $this.Left; Top = $this.Top } }
 $window | Add-Member -MemberType ScriptMethod -Name Close -Value { $this.Closed = $true }
 $ui = @{
-    SpeechText   = [pscustomobject]@{ Text = '' }
-    SpeechBubble = [pscustomobject]@{ Visibility = 'Visible' }
+    SpeechText   = [pscustomobject]@{ Text = ''; FontSize = 14.0 }
+    SpeechBubble = [pscustomobject]@{ Visibility = 'Visible'; Width = 230.0 }
+    DuckViewbox  = [pscustomobject]@{ Width = 250.0; Height = 228.0 }
+    BubbleTailScale = [pscustomobject]@{ ScaleX = 1.0 }
     SpeechBorder = [pscustomobject]@{ Background = $null }
     RootFlip     = [pscustomobject]@{ ScaleX = 1 }
     TextFlip     = [pscustomobject]@{ ScaleX = 1 }
@@ -656,6 +716,7 @@ function Reset-Duck {
     foreach ($timer in $timers) { $timer.Running = $false; $timer.Ticks = 0 }
     foreach ($sb in @($characterAnimations.Values | ForEach-Object { $_.Legs; $_.Glow })) { $sb.Running = $false; $sb.Paused = $false; $sb.Begins = 0 }
     $script:state = Get-AssignedValue $v2.Ast 'state'
+    $window.Width = $winW; $window.Height = $winH   # velikost 100 %
     $state.RandomBehavior = $false
     $state.RotationName = 'Nestřídat'   # střídání postav (výchozí po 15 minutách) by testům měnilo hlášky; testuje se zvlášť
     Set-Character 'Kachna'
@@ -1737,6 +1798,62 @@ function New-Shortcut {
 }
 
 # ===========================================================================
+Write-Section 'Velikost postavy'
+# ===========================================================================
+Reset-Duck $main
+[void](Invoke-Sim -Seconds 3)
+$feetBefore = $window.Top + $window.Height
+$xBefore = $window.Left
+Invoke-Menu 'Velikost postavy', '50 %'
+$half = $config.CharacterSizes['50 %']
+Assert-True ($state.SizeName -eq '50 %' -and $window.Width -eq 130 -and $window.Height -eq $half.Height -and $ui.DuckViewbox.Width -eq 125 -and $ui.DuckViewbox.Height -eq 114 -and $ui.SpeechBubble.Width -eq 115 -and $ui.BubbleTailScale.ScaleX -eq 0.5 -and $ui.SpeechText.FontSize -eq $half.FontSize) 'menu 50 %: menší okno, kresba, bublina, ocásek i písmo'
+Assert-True ((Test-OnGround $main) -and [math]::Abs(($window.Top + $window.Height) - $feetBefore) -lt 0.01 -and [math]::Abs($window.Left - $xBefore) -lt 1 -and $null -ne $sim.Anims['Left'] -and $sim.Anims['Left'].To -eq $main.Right - 130) 'postava stojí dál na zemi na stejném místě a jde k okraji'
+Assert-True ($state.Speed -eq $config.Speeds[$config.DefaultSpeed] -and [math]::Abs($state.Legs.Ratio - 2.0) -lt 0.001) 'chodí stejně rychle, nohy kmitají 2x rychleji (kratší krok)'
+$t = Invoke-Sim -Seconds 200
+Assert-True ($t.Turns -ge 1 -and $t.MaxX + $window.Width -le $main.Right + 0.001 -and [math]::Abs($t.MaxX + 130 - $main.Right) -lt 0.01) 'malá postava dojde až k okraji obrazovky a otočí se'
+$sim.CursorDip = [pscustomobject]@{ X = 900; Y = 500 }
+Start-Feeding
+$plan = $sim.Anims['Left']
+$expected = if ($state.Direction -gt 0) { 900 - $characters.Kachna.BeakOffset * 0.5 } else { 900 - (130 - $characters.Kachna.BeakOffset * 0.5) }
+Assert-True ([math]::Abs($plan.To - $expected) -lt 0.01) 'krmení: zobák je u menší postavy blíž (BeakOffset * 0,5)'
+Stop-Feeding
+Start-Hop -Quiet
+Assert-True ([math]::Abs($sim.Anims['Top'].From - $sim.Anims['Top'].To - $config.HopHeight * 0.5) -lt 0.01) 'poskok je úměrně nižší'
+[void](Invoke-Sim -Seconds 2)
+Invoke-Menu 'Postava', 'Robot'
+Assert-True ($ui.BubbleShift.Y -eq $characters.Robot.BubbleDrop * 0.5) 'robot: bublina posunutá úměrně velikosti'
+Invoke-Menu 'Velikost postavy', '75 %'
+Assert-True ($window.Width -eq 195 -and $ui.SpeechBubble.Width -eq [math]::Round(230 * 0.75) -and $ui.BubbleShift.Y -eq $characters.Robot.BubbleDrop * 0.75 -and (Test-OnGround $main)) 'menu 75 %: okno 195 DIP, užší bublina'
+# Změna velikosti při pádu a ve skrytu
+Reset-Duck $main
+$sim.CursorArea = $main
+Start-Fall -Area $main -X 500 -Y 100
+Step-Sim 0.1
+Invoke-Menu 'Velikost postavy', '50 %'
+Assert-True ($state.Falling -and $sim.Anims['Top'].To -eq $state.GroundY) 'při pádu: spadne na zem podle nové velikosti'
+[void](Invoke-Sim -Seconds 2)
+Assert-True (Test-OnGround $main) 'a dopadne'
+Set-Hidden $true
+Invoke-Menu 'Velikost postavy', '100 %' -Tray
+Assert-True (-not $window.IsVisible -and $window.Width -eq 260 -and $sim.Anims.Count -eq 0 -and -not $heartTimer.Running) 've skrytu se velikost změní, ale nic se nerozběhne'
+Set-Hidden $false
+Assert-True ((Test-OnGround $main) -and $null -ne $sim.Anims['Left']) 'po zobrazení je velká a jde'
+# Pamatování a výchozí nastavení
+Reset-Duck $main
+$state.Remember = $true
+Invoke-Menu 'Velikost postavy', '75 %'
+$saved = Get-Content -Raw $settingsPath | ConvertFrom-Json
+Assert-True ($saved.Size -eq '75 %') 'velikost se pamatuje'
+$script:state = Get-AssignedValue $v2.Ast 'state'
+Import-Setting
+Assert-True ($state.SizeName -eq '75 %') 'po startu platí zapamatovaná velikost'
+Reset-Duck $main
+Invoke-Menu 'Velikost postavy', '50 %'
+Invoke-Menu 'Nastavení', 'Obnovit výchozí nastavení'
+Assert-True ($state.SizeName -eq '100 %' -and $window.Width -eq 260 -and $ui.SpeechText.FontSize -eq 14) 'Obnovit výchozí nastavení: zase 100 %'
+Set-RememberSetting $false
+
+# ===========================================================================
 Write-Section 'Zvuk'
 # ===========================================================================
 Reset-Duck $main
@@ -1770,7 +1887,7 @@ $expectChecked = [ordered]@{
     'Nastavení|Zapnuté kachní hlášky' = $true; 'Nastavení|Tichý režim (bez bublin)' = $false; 'Nastavení|Zvuk (kvák)' = $false; 'Nastavení|Vždy navrchu' = $true
     'Připomínky|Pitný režim (každou hodinu)' = $true; 'Připomínky|Protažení (každé 2 hodiny)' = $true
     'Připomínky|Pomodoro (25 min práce, 5 min pauza)' = $true; 'Pojď za myší' = $false
-    'Postava|Kachna' = $true; 'Postava|Slepice' = $false; 'Postava|Náhodná' = $false; 'Střídat postavy|Každých 15 minut' = $true; 'Nastavení|Pamatovat si nastavení' = $false
+    'Postava|Kachna' = $true; 'Postava|Slepice' = $false; 'Postava|Náhodná' = $false; 'Střídat postavy|Každých 15 minut' = $true; 'Nastavení|Pamatovat si nastavení' = $false; 'Velikost postavy|100 %' = $true; 'Velikost postavy|50 %' = $false
     'Nastavení|Střídat postavy popořadě' = $false
 }
 $state.RandomBehavior = $false
@@ -1782,7 +1899,7 @@ foreach ($path in $expectChecked.Keys) {
     Assert-True ($null -ne $duckItem -and $null -ne $trayItem -and $duckItem.IsChecked -eq $expectChecked[$path] -and $trayItem.Checked -eq $expectChecked[$path]) ("menu: '{0}' {1} (u kachny i u ikony)" -f ($path -replace '\|', ' > '), $(if ($expectChecked[$path]) { 'zaškrtnuté' } else { 'nezaškrtnuté' }))
 }
 $submenus = @($menuItems + $trayItems | Where-Object { $_.Tag -and ($_.Tag.Spec.Choices -or $_.Tag.Spec.Items) -and $null -eq $_.Tag.Choice })
-Assert-True ($submenus.Count -eq 16 -and @($submenus | Where-Object Clickable).Count -eq 0) 'podmenu nemají vlastní akci (klik na volbu k nim ve WPF probublá)'
+Assert-True ($submenus.Count -eq 18 -and @($submenus | Where-Object Clickable).Count -eq 0) 'podmenu nemají vlastní akci (klik na volbu k nim ve WPF probublá)'
 Set-Paused $true
 Update-MenuState -Items $menuItems -Tray $false
 Assert-True ($menuItems[0].Header -eq 'Pokračovat') 'v pauze menu nabízí Pokračovat'
