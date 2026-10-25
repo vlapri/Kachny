@@ -293,8 +293,13 @@ $offX = ($winW - $vbW) / 2; $offY = $winH - $vbH
 function ConvertTo-LayerPoint { param([double]$X, [double]$Y) @(($cropL + $boxW - ($X - $offX) / $scaleX), ($cropT + ($Y - $offY) / $scaleY)) }
 $bubbleLeft = $winW - [double]($bubble.Margin -split ',')[2] - [double]$bubble.Width
 $bubbleBottom = $offY - $tailRow                                  # spodní okraj těla bubliny v okně
-$bubbleLimitY = (ConvertTo-LayerPoint 0 $bubbleBottom)[1]          # ... v souřadnicích kresby
-$tailTri = [double[][]]@($tailPoints | ForEach-Object { , [double[]](ConvertTo-LayerPoint ($bubbleLeft + $_[0]) ($bubbleBottom + $_[1])) })
+function Set-BubblePlace {
+    # Bublina a ocásek v souřadnicích kresby; Drop = posun bubliny dolů u nižší postavy (BubbleDrop, DIP).
+    param([double]$Drop = 0)
+    $script:bubbleLimitY = (ConvertTo-LayerPoint 0 ($bubbleBottom + $Drop))[1]
+    $script:tailTri = [double[][]]@($tailPoints | ForEach-Object { , [double[]](ConvertTo-LayerPoint ($bubbleLeft + $_[0]) ($bubbleBottom + $Drop + $_[1])) })
+}
+Set-BubblePlace
 $winTopLeft = ConvertTo-LayerPoint $winW 0                           # okno v souřadnicích kresby (x je překlopené)
 $winBottomRight = ConvertTo-LayerPoint 0 $winH
 function Get-ShapeCheck {
@@ -331,6 +336,7 @@ Assert-True ($charElements.Count -eq $characters.Count) "XAML má kresbu pro ka�
 foreach ($name in $characters.Keys) {
     $c = $characters[$name]
     $element = $byName[$c.Element]
+    Set-BubblePlace ([double]$c.BubbleDrop)
     $hidden = if ($name -eq 'Kachna') { '' } else { 'Collapsed' }
     Assert-True ($null -ne $element -and "$($element.Visibility)" -eq $hidden) "$($name): kresba $($c.Element), vidět je po startu jen kachna"
     $parts = @($c.Legs + $c.Body + $c.Eyes + $c.SleepEye + $c.Hats)
@@ -355,6 +361,8 @@ foreach ($name in $characters.Keys) {
     $top = Get-ShapeCheck $element
     if ($c.Tilt) { $top = Get-ShapeCheck $byName[$c.Tilt] @tiltArgs }
     Assert-True ($top.MinY -ge $bubbleLimitY -and $top.MinTail -gt 0 -and $top.InWindow) ("$($name): nesahá do bubliny ani do ocásku a je celá v okně (nejvýš y {0:N1})" -f $top.MinY)
+    $tailTip = ($tailTri | ForEach-Object { $_[1] } | Measure-Object -Maximum).Maximum
+    Assert-True (($top.MinY - $tailTip) / 2 -le 30) ("$($name): bublina je u hlavy, ne vysoko nad ní (mezera {0:N0} DIP, BubbleDrop {1})" -f (($top.MinY - $tailTip) / 2), [double]$c.BubbleDrop)
     Assert-True ($c.BeakOffset -gt 0 -and $c.BeakOffset -lt $winW) "$($name): zobák / pusa pro krmení je v okně ($($c.BeakOffset) DIP)"
     # Převleky na její hlavě (posun CostumeShift)
     foreach ($costume in $c.Costumes) {
@@ -363,6 +371,8 @@ foreach ($name in $characters.Keys) {
     }
 }
 Assert-True ($v2Text.Contains('RotateTransform]::AngleProperty') -and $v2Text.Contains('$ui.CostumeTilt')) 'kolébání animuje storyboard nohou (trup i převleky, jen při pohybu)'
+Set-BubblePlace
+Assert-True ($byName['BubbleShift'].LocalName -eq 'TranslateTransform' -and $byName['BubbleShift'].ParentNode.ParentNode -eq $byName['SpeechBubble']) 'bublina se dá posunout dolů (BubbleShift)'
 Assert-True ($byName['CostumeShift'].LocalName -eq 'TranslateTransform' -and $byName['Costumes'].SelectNodes("./*[local-name()='Canvas']").Count -eq 3) 'převleky se posouvají společně (CostumeShift)'
 foreach ($costume in 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') {
     $s = Get-ShapeCheck $byName[$costume]
@@ -494,6 +504,7 @@ $ui = @{
 }
 foreach ($n in $usedNames) { if (-not $ui.ContainsKey($n)) { $ui[$n] = [pscustomobject]@{ Visibility = 'Visible' } } }
 $ui.CostumeShift = [pscustomobject]@{ X = 0.0; Y = 0.0 }
+$ui.BubbleShift = [pscustomobject]@{ Y = 0.0 }
 $bubbleBrushes = @{ Normal = 'bílá'; Reminder = 'modrá' }
 $clock = [pscustomobject]@{ T = 0.0 }
 $clock | Add-Member -MemberType ScriptProperty -Name Elapsed -Value { [TimeSpan]::FromSeconds($this.T) }
@@ -1575,6 +1586,7 @@ Assert-True ($null -ne (Find-MenuItem -Items $menuItems -Path 'Skrýt tučňáka
 # Robot uklízeč: hlášky o sbírání a recyklaci
 Reset-Duck $main
 Invoke-Menu 'Postava', 'Robot'
+Assert-True ($ui.BubbleShift.Y -eq $characters.Robot.BubbleDrop -and $ui.BubbleShift.Y -gt 0) "robot je nižší: bublina je o $($ui.BubbleShift.Y) DIP níž"
 Assert-True ($state.Character -eq 'Robot' -and $ui.CharRobot.Visibility -eq 'Visible' -and $state.Legs.Running -and $ui.SpeechText.Text -in $characterPhrases.Robot.Hello) "robot nastupuje: '$($ui.SpeechText.Text)'"
 $waste = @($characterPhrases.Robot.Main | Where-Object { $_ -match '(?i)tříd|recykl|odpad|sbír|sběr|koš|kontejner|plast|papír|sklo|lis|plýtv|kompost|vyhod|zálohov|nález|sbírk|uklí|úklid' })
 Assert-True ($waste.Count -ge 20) "robot mluví hlavně o sbírání a recyklaci ($($waste.Count) z $($characterPhrases.Robot.Main.Count) hlášek)"
@@ -1584,6 +1596,8 @@ Assert-True ($state.Sleeping -and $ui.RobotSleepEye.Visibility -eq 'Visible' -an
 $sim.Active = $true
 Step-Sim 2.0
 Assert-True (-not $state.Sleeping -and $ui.RobotEyeL.Visibility -eq 'Visible' -and $ui.SpeechText.Text -in $characterPhrases.Robot.Wake) "a probudí se: '$($ui.SpeechText.Text)'"
+Invoke-Menu 'Postava', 'Kachna'
+Assert-True ($ui.BubbleShift.Y -eq 0) 'kachna má bublinu zase na místě'
 
 # Střídání postav a kalendář
 Reset-Duck $main
