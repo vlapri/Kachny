@@ -20,7 +20,7 @@
       - kachna dojde až k okraji pracovní plochy a respektuje hlavní panel na libovolné straně,
       - plynulý pohyb řízený animacemi WPF, bublina je vždy u hlavy a přizpůsobí se délce textu,
       - hlášky podle denní doby, svátků, baterie a ušlé vzdálenosti; připomínky (pitný režim, Pomodoro),
-      - postavy: kachna, slepice, žlutý brýlatý skřítek a tučňák velitel (po startu náhodně, volba v menu, střídání,
+      - postavy: kachna, slepice, žlutý brýlatý skřítek, tučňák velitel a robot uklízeč (po startu náhodně, volba v menu, střídání,
         o Vánocích kachna s čepicí; nastavení Character a CharacterCalendar v $config),
       - náhodné chování, krmení rohlíkem, "Pojď za myší", poskok, sezónní převleky, volitelný zvuk,
       - úspornost: omezené snímky animací, usnutí při nečinnosti, skrytí při zamčení PC, úsporný režim na baterii,
@@ -85,7 +85,7 @@ $config = @{
     RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
-    Character            = 'Náhodná'  # postava po startu: 'Kachna', 'Slepice', 'Skřítek', 'Tučňák' nebo 'Náhodná'
+    Character            = 'Náhodná'  # postava po startu: 'Kachna', 'Slepice', 'Skřítek', 'Tučňák', 'Robot' nebo 'Náhodná'
     CharacterCalendar    = @(         # vynucená postava v období (měsíc * 100 + den, období může přejít přes Nový rok)
         @{ From = 1201; To = 106; Character = 'Kachna' }   # Vánoce: kachna s mikulášskou čepicí
     )
@@ -592,6 +592,89 @@ $characterPhrases = @{
             Uptime     = @("Už spolu sloužíme {0}.", "Jsem s tebou už {0}. Pozor!")
         }
     }
+    'Robot'   = @{
+        Main      = @(
+            "Píp! Sbírám, třídím, lisuju. A ty?",
+            "Plast do žlutého, papír do modrého, sklo do zeleného!",
+            "Tenhle rohlík byl skoro celý. Plýtvání!",
+            "Každý odpadek je poklad. Jen to o sobě neví.",
+            "Kostka odpadu hotová. Mám jich už tisíc.",
+            "Koš na ploše je plný. Mám ho vysypat?",
+            "Smazané soubory taky recykluju. Píp!",
+            "Staré baterie nepatří do koše! Patří do sběru.",
+            "Našel jsem šroubek. Dnešní nejlepší nález!",
+            "Ještě jeden kelímek a mám sbírku.",
+            "Zmačkej plechovku, ušetříš místo v kontejneru.",
+            "Kompost je kouzlo: ze slupek vznikne hlína.",
+            "Ten starý kabel ještě nevyhazuj, někdy se hodí!",
+            "Bioodpad do hnědé! Pamatuj si to.",
+            "Tvůj stůl potřebuje úklid. Můžu pomoct?",
+            "Opravit je lepší než vyhodit.",
+            "Píp píp! Detekován papír. Třídit!",
+            "Moje pásy jezdí na sluneční energii.",
+            "Nejlepší odpad je ten, který nevznikne.",
+            "Lahev od pití? Vrať ji, je zálohovaná!",
+            "Kdo třídí, ten šetří planetu.",
+            "Celý den lisuju odpad. A večer si pustím muzikál.",
+            "Mám rád svoji sbírku. Hlavně ty lesklé věci.",
+            "Píp! Prázdný šuplík nalezen. Smutné.",
+            "Robot uklízeč hlásí: obrazovka je skoro čistá.",
+            "Elektroodpad patří do sběrného dvora, ne do šuplíku.",
+            "Tahle obrazovka by potřebovala vysát prach.",
+            "Hrnek od kafe? Umyj a použij znovu!",
+            "Nechť tě provází Síla... a tříděný odpad.",
+            "Houstone, máme odpadky..."
+        )
+        Complaint = @(
+            "Píp! Pásy zablokovány!",
+            "Pusť mě! Odpad se sám nesesbírá!",
+            "Tohle je robotí vězení!",
+            "Stojím tu jak plný popelník...",
+            "Pásy mi rezavějí. Klepni na mě, prosím!",
+            "Zavolám robotí odbory!",
+            "Mezitím se tu hromadí nepořádek!",
+            "Píp... píp... nuda...",
+            "Ostatní roboti uklízejí, jen já tu trčím.",
+            "Jsem robot, ne odpadkový koš!",
+            "Jestli mě nepustíš, začnu pípat!",
+            "${Env:UserName}, pamatuješ si ještě na mě?"
+        )
+        Resume    = @("Konečně! Pásy, vpřed!", "Svoboda! Píp píp!", "Díky! Už jsem myslel, že tu zreznu.", "Jdeme uklízet!")
+        Drop      = @("Přistání! Nové skládkoviště!", "Uf, roboti nejsou stavění na létání!", "Příště mě aspoň upozorni!", "Tady se mi líbí. Je tu co sbírat?", "Robotí aerolinie děkují za let.")
+        Rest      = @("Dobíjím baterie...", "Ty jo, to je ale výhled!", "Kam jsem to vlastně jel?", "Malá pauza na promazání pásů.", "Zapomněl jsem, co jsem chtěl sebrat.", "Předstírám, že jsem kontejner.")
+        Show      = @("Píp! Už jsem zpátky!", "Chyběl jsem ti?", "Tak kde jsem to skončil?", "Byl jsem vysypat koš.")
+        Welcome   = @("Vítej zpět!", "Konečně! Už jsem se nudil.", "Ahoj! Mezitím jsem uklidil.", "Píp! Jak bylo venku?")
+        Sleep     = @("Zzz...", "Zzz... odpadky... zzz...", "Píp... úsporný režim... zzz...")
+        Wake      = @("Píp! Systém nastartován!", "Nespal jsem, jen jsem se dobíjel.", "Á, už jsi zpátky!", "Zdálo se mi o sběrném dvoře...")
+        Hop       = @("Hop!", "Píp!", "Juchů!", "Skok přes popelnici!")
+        Cross     = @("Jé, nový monitor!", "Tady jsem ještě nebyl!", "Nové území! Je tu co uklízet?", "Dobrý den, sousedé! Třídíte?")
+        Food      = @("Rohlík! Ten by se neměl vyhodit!", "Zbytky? Zachráním je!", "Nic se nevyhodí!")
+        Eat       = @("Rohlík zachráněn před košem!", "Hotovo! Nic se nevyhodilo.", "Píp! Zbytky zpracovány.", "Další? Plýtvání je hřích!")
+        Hello     = @("Píp píp! Robot VALL-I hlásí nástup!", "Robot uklízeč nastupuje do služby!", "Ahoj! Teď tu uklízím já.")
+        Reminder  = @{
+            Drink   = @("Napij se! A lahev pak vrať nebo vytřiď.", "Pitný režim! Sklenička vody neuškodí.", "Čas na doušek! Já si dám kapku oleje.")
+            Stretch = @("Protáhni se! Já si promažu klouby.", "Vstaň a protáhni se, já ti pohlídám počítač.", "Zamávej rukama! Já mám drapáky.")
+        }
+        Situation = @{
+            Morning    = @("Dobré ráno, ${Env:UserName}! Popelnice už vyvezli?", "Ráno je moudřejší večera. A robot je moudřejší než obojí.")
+            Afternoon  = @("Odpolední krize? Dej si kafe. Hrnek pak umyj!", "Odpoledne se mi vždycky chce dobíjet.")
+            Evening    = @("Už je večer. Nechceš jít domů?", "Večer je ideální čas vynést tříděný odpad.")
+            Night      = @("Roboti už se dobíjejí. A ty?", "Je noc, ${Env:UserName}! Jdi spát.")
+            Monday     = @("Pondělí... svoz odpadu!", "Pondělí je jen pátek obráceně.")
+            Friday     = @("Pátek odpoledne! Víkend na obzoru!", "Pátek! Pípám radostí.")
+            NewYear    = @("Šťastný nový rok! Předsevzetí: víc třídit.")
+            Valentine  = @("Dneska je Valentýn. Píp a pusu!")
+            AprilFool  = @("Dneska věř jen robotům.", "Apríl! Teda... píp.")
+            Halloween  = @("Bú! Strašidelný robot!", "Koledu, nebo odpadky! Teda vytříděné.")
+            Advent     = @("Už máš dárky? Balicí papír pak vytřiď!", "Advent! Krabice od dárků patří do modrého.")
+            Christmas  = @("Veselé Vánoce! Papír od dárků do modrého kontejneru!", "Šťastné a veselé! Rozbalíme dárky?")
+            NewYearEve = @("Silvestr! Po rachejtlích zůstane spousta nepořádku.")
+            Easter     = @("Velikonoce! Skořápky od vajec patří do kompostu.", "Veselé Velikonoce! Pomlázka je z přírodních materiálů?")
+            Battery    = @("Mám jen {0} % baterie! Dej mi nabíječku!", "Baterie {0} %! Píp, nabíječku!")
+            Distance   = @("Dnes jsem ujel už {0}!", "Ujel jsem {0}. A sebral všechno po cestě.")
+            Uptime     = @("Už spolu uklízíme {0}.", "Jsem s tebou už {0}. Píp!")
+        }
+    }
 }
 
 # Hlášky kachny = výchozí pro všechny postavy (Get-PhraseList)
@@ -640,6 +723,13 @@ $characters = [ordered]@{
         Eyes = @('PenguinEyeL', 'PenguinEyeR'); SleepEye = 'PenguinSleepEye'; Hats = @()
         Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 14); BeakOffset = 208
         Voice = @(@(0.08, 900, 800), @(0.05, 0, 0), @(0.15, 1000, 700)); WaveFile = ''
+    }
+    'Robot'   = @{
+        Element = 'CharRobot'; Accusative = 'robota'; Adjective = 'robotí'; SoundName = 'píp'
+        Legs = @('RobotTreadL', 'RobotTreadR'); LegShift = 8; Body = 'RobotBody'; Glow = '#FFF0BC50'
+        Eyes = @('RobotEyeL', 'RobotEyeR', 'RobotGlintL', 'RobotGlintR'); SleepEye = 'RobotSleepEye'; Hats = @()
+        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 4); BeakOffset = 238
+        Voice = @(@(0.06, 1200, 1200), @(0.03, 0, 0), @(0.06, 1500, 1500), @(0.03, 0, 0), @(0.14, 900, 1300)); WaveFile = ''
     }
 }
 
@@ -869,6 +959,52 @@ $characters = [ordered]@{
                     </Canvas>
                     <!-- Sezónní převleky (Update-Costume). Čepice přesahují nad ořez kresby do volného místa pod bublinou
                          (Canvas ani Viewbox neořezávají); test hlídá, že nezasahují do bubliny ani do ocásku. -->
+                    <!-- Robot VALL-I: uklízecí robot na pásech, oči jako dalekohled na teleskopickém krku -->
+                    <Canvas x:Name="CharRobot" Visibility="Collapsed">
+                        <Canvas x:Name="RobotTreadR">
+                            <Canvas.RenderTransform>
+                                <TranslateTransform/>
+                            </Canvas.RenderTransform>
+                            <Path Fill="#FF4A4A4A" Stroke="#FF000000" StrokeThickness="4"
+                                  Data="M 214,420 L 300,420 C 314,420 322,436 322,450 C 322,466 310,476 296,476 L 218,476 C 204,476 196,466 196,450 C 196,436 202,420 214,420 Z"/>
+                            <Ellipse Canvas.Left="210" Canvas.Top="436" Width="28" Height="28" Fill="#FF8A8A8A" Stroke="#FF000000" StrokeThickness="3"/>
+                            <Ellipse Canvas.Left="280" Canvas.Top="436" Width="28" Height="28" Fill="#FF8A8A8A" Stroke="#FF000000" StrokeThickness="3"/>
+                        </Canvas>
+                        <Path Fill="#FFE0A030" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 300,292 L 330,300 L 330,320 L 300,312 Z M 330,292 L 352,286 L 348,300 L 336,304 L 348,312 L 352,326 L 330,326 Z"/>
+                        <Path Fill="#FF8A8A8A" Stroke="#FF000000" StrokeThickness="4" Data="M 196,126 L 214,126 L 214,248 L 196,248 Z"/>
+                        <Path Fill="#FF6E6E6E" Stroke="#FF000000" StrokeThickness="3" Data="M 192,170 L 218,170 L 218,182 L 192,182 Z M 192,208 L 218,208 L 218,220 L 192,220 Z"/>
+                        <Path x:Name="RobotBody" Fill="#FFE0A030" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 112,245 L 300,245 L 300,425 L 112,425 Z"/>
+                        <Path Fill="#FFC8861E" Stroke="#FF000000" StrokeThickness="3" Data="M 132,268 L 280,268 L 280,332 L 132,332 Z"/>
+                        <Path Fill="#FF2B2B2B" Stroke="#FF000000" StrokeThickness="2" Data="M 146,282 L 196,282 L 196,318 L 146,318 Z"/>
+                        <Path Fill="#FF6BCB3B" Data="M 152,312 L 160,312 L 160,302 L 152,302 Z M 164,312 L 172,312 L 172,295 L 164,295 Z M 176,312 L 184,312 L 184,288 L 176,288 Z"/>
+                        <Ellipse Canvas.Left="226" Canvas.Top="286" Width="28" Height="28" Fill="#FFD94030" Stroke="#FF000000" StrokeThickness="3"/>
+                        <Path Stroke="#FF8A5A12" StrokeThickness="3" Data="M 112,360 L 300,360 M 112,392 L 300,392"/>
+                        <Canvas x:Name="RobotTreadL">
+                            <Canvas.RenderTransform>
+                                <TranslateTransform/>
+                            </Canvas.RenderTransform>
+                            <Path Fill="#FF5A5A5A" Stroke="#FF000000" StrokeThickness="4"
+                                  Data="M 110,420 L 196,420 C 210,420 218,436 218,450 C 218,466 206,476 192,476 L 114,476 C 100,476 92,466 92,450 C 92,436 98,420 110,420 Z"/>
+                            <Ellipse Canvas.Left="106" Canvas.Top="436" Width="28" Height="28" Fill="#FF9A9A9A" Stroke="#FF000000" StrokeThickness="3"/>
+                            <Ellipse Canvas.Left="176" Canvas.Top="436" Width="28" Height="28" Fill="#FF9A9A9A" Stroke="#FF000000" StrokeThickness="3"/>
+                        </Canvas>
+                        <Path Fill="#FFE0A030" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 112,292 L 82,300 L 82,320 L 112,312 Z M 82,292 L 60,286 L 64,300 L 76,304 L 64,312 L 60,326 L 82,326 Z"/>
+                        <Path Fill="#FF9AA0A6" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 120,70 C 120,60 128,56 138,58 L 196,66 C 204,68 206,74 206,82 L 206,118 C 206,126 200,130 192,130 L 134,130 C 124,130 120,124 120,116 Z"/>
+                        <Path Fill="#FF9AA0A6" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                              Data="M 290,70 C 290,60 282,56 272,58 L 222,66 C 214,68 212,74 212,82 L 212,118 C 212,126 218,130 226,130 L 278,130 C 286,130 290,124 290,116 Z"/>
+                        <Ellipse x:Name="RobotEyeL" Canvas.Left="138" Canvas.Top="76" Width="44" Height="44" Fill="#FF2B2B2B" StrokeThickness="4" Stroke="#FF000000"/>
+                        <Ellipse x:Name="RobotEyeR" Canvas.Left="228" Canvas.Top="76" Width="44" Height="44" Fill="#FF2B2B2B" StrokeThickness="4" Stroke="#FF000000"/>
+                        <Ellipse x:Name="RobotGlintL" Canvas.Left="146" Canvas.Top="84" Width="12" Height="12" Fill="#FFFFFFFF"/>
+                        <Ellipse x:Name="RobotGlintR" Canvas.Left="236" Canvas.Top="84" Width="12" Height="12" Fill="#FFFFFFFF"/>
+                        <Canvas x:Name="RobotSleepEye" Visibility="Hidden">
+                            <Path Stroke="#FF2B2B2B" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 142,100 L 178,100 M 232,100 L 268,100"/>
+                        </Canvas>
+                    </Canvas>
                     <!-- kolébání převleků spolu s trupem (CostumeTilt animují storyboardy postav s Tilt, střed jako PenguinTilt) -->
                     <Canvas x:Name="CostumeTilt">
                         <Canvas.RenderTransform>
@@ -2528,7 +2664,8 @@ foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechB
     'CostumeShift', 'CharDuck', 'path2', 'path4', 'path6', 'circle12', 'circle14', 'SleepEye',
     'CharChicken', 'ChickenLegL', 'ChickenLegR', 'ChickenBody', 'ChickenEye', 'ChickenPupil', 'ChickenSleepEye', 'ChickenComb',
     'CharMinion', 'MinionLegL', 'MinionLegR', 'MinionBody', 'MinionEye', 'MinionIris', 'MinionPupil', 'MinionSleepEye', 'MinionHair',
-    'CharPenguin', 'PenguinLegL', 'PenguinLegR', 'PenguinTilt', 'PenguinBody', 'PenguinEyeL', 'PenguinEyeR', 'PenguinSleepEye', 'CostumeTilt') { $ui[$name] = $window.FindName($name) }
+    'CharPenguin', 'PenguinLegL', 'PenguinLegR', 'PenguinTilt', 'PenguinBody', 'PenguinEyeL', 'PenguinEyeR', 'PenguinSleepEye', 'CostumeTilt',
+    'CharRobot', 'RobotTreadL', 'RobotTreadR', 'RobotBody', 'RobotEyeL', 'RobotEyeR', 'RobotGlintL', 'RobotGlintR', 'RobotSleepEye') { $ui[$name] = $window.FindName($name) }
 $bubbleBrushes = @{
     Normal   = [System.Windows.Media.Brushes]::White
     Reminder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#FFDDEEFF'))
