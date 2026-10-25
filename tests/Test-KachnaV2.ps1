@@ -782,9 +782,9 @@ function Find-MenuItem {
 }
 
 function New-MenuEntry {
-    param($Tag, [bool]$Tray, [bool]$Clickable)
-    if ($Tray) { return [pscustomobject]@{ Tag = $Tag; Text = ''; Checked = $false; DropDownItems = (New-Object System.Collections.ArrayList); Clickable = $Clickable } }
-    return [pscustomobject]@{ Tag = $Tag; Header = ''; IsChecked = $false; Items = (New-Object System.Collections.ArrayList); Clickable = $Clickable; InputGestureText = '' }
+    param($Tag, [bool]$Tray, [bool]$Clickable, [bool]$Disabled)
+    if ($Tray) { return [pscustomobject]@{ Tag = $Tag; Text = ''; Checked = $false; DropDownItems = (New-Object System.Collections.ArrayList); Clickable = $Clickable; Enabled = -not $Disabled } }
+    return [pscustomobject]@{ Tag = $Tag; Header = ''; IsChecked = $false; Items = (New-Object System.Collections.ArrayList); Clickable = $Clickable; InputGestureText = ''; IsEnabled = -not $Disabled }
 }
 function New-MenuSeparator { param([bool]$Tray) [pscustomobject]@{ Tag = $null; Tray = $Tray } }
 $menuItems = New-Object System.Collections.ArrayList
@@ -1905,6 +1905,14 @@ Update-MenuState -Items $menuItems -Tray $false
 Assert-True ($menuItems[0].Header -eq 'Pokračovat') 'v pauze menu nabízí Pokračovat'
 Invoke-Menu 'Pokračovat'
 Assert-True (-not $state.Paused) 'Pokračovat kachnu rozběhne'
+$version = $config.Version
+Assert-True ($version -match '^\d+\.\d+\.\d+$') "verze programu: $version (číslo.číslo.číslo)"
+Assert-True ($v2Text.Contains("Verze: viz `$config.Version")) 'hlavička skriptu odkazuje na verzi'
+$duckVersion = $menuItems[$menuItems.Count - 1]
+$trayVersion = $trayItems[$trayItems.Count - 1]
+Assert-True ($duckVersion.Header -eq "Kachna verze $version" -and $trayVersion.Text -eq "Kachna verze $version") "menu kachny i ikony končí verzí: '$($duckVersion.Header)'"
+Assert-True (-not $duckVersion.IsEnabled -and -not $trayVersion.Enabled -and -not $duckVersion.Clickable -and -not $trayVersion.Clickable -and $null -eq $duckVersion.Tag.Spec.Action) 'položka s verzí je neaktivní a nic nedělá'
+Assert-True (@($menuItems + $trayItems | Where-Object { $_.Tag -and -not $_.Tag.Spec.Disabled -and (($_.PSObject.Properties['IsEnabled'] -and -not $_.IsEnabled) -or ($_.PSObject.Properties['Enabled'] -and -not $_.Enabled)) }).Count -eq 0) 'ostatní položky menu jsou aktivní'
 Invoke-Menu 'Ukončit'
 Assert-True $window.Closed 'Ukončit zavře okno (skript pak skončí)'
 
