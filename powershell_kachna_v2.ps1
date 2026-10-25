@@ -698,7 +698,7 @@ $commonPhrases = @{
 # a barvu těla (Body -> Glow), kolébání trupu (Tilt = prvek s RotateTransform, o TiltAngle stupňů na obě strany;
 # převleky se kolébají s ním přes CostumeTilt se stejným středem otáčení), oči (Eyes = otevřené, SleepEye = zavřené), co schovat pod klobouk (Hats),
 # které převleky jí sluší (Costumes) a o kolik je posunout (CostumeShift), kde má zobák / pusu při krmení
-# (BeakOffset = od levého okraje okna při chůzi doprava, DIP), hlas (Voice = tóny pro New-QuackWave,
+# (BeakOffset = od levého okraje okna při chůzi doprava, DIP), o kolik níž má bublinu nižší postava (BubbleDrop, DIP), hlas (Voice = tóny pro New-QuackWave,
 # WaveFile = vlastní zvuk vedle skriptu) a slova do menu.
 $characters = [ordered]@{
     'Kachna'  = @{
@@ -734,7 +734,7 @@ $characters = [ordered]@{
         Element = 'CharRobot'; Accusative = 'robota'; Adjective = 'robotí'; SoundName = 'píp'
         Legs = @('RobotTreadL', 'RobotTreadR'); LegShift = 8; Body = 'RobotBody'; Glow = '#FFF0BC50'
         Eyes = @('RobotEyeL', 'RobotEyeR', 'RobotGlintL', 'RobotGlintR'); SleepEye = 'RobotSleepEye'; Hats = @()
-        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 117); BeakOffset = 238
+        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 117); BeakOffset = 238; BubbleDrop = 56
         Voice = @(@(0.06, 1200, 1200), @(0.03, 0, 0), @(0.06, 1500, 1500), @(0.03, 0, 0), @(0.14, 900, 1300)); WaveFile = ''
     }
 }
@@ -771,6 +771,10 @@ $characters = [ordered]@{
              Ocásek má stejnou barvu jako bublina (připomínky jsou modré). -->
         <Grid x:Name="SpeechBubble" Grid.Row="0" Width="230" Margin="0,0,6,0"
               HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <Grid.RenderTransform>
+                <!-- nižší postava má bublinu níž (BubbleDrop v $characters, nastavuje Set-Character) -->
+                <TranslateTransform x:Name="BubbleShift"/>
+            </Grid.RenderTransform>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="16"/>
@@ -2019,6 +2023,7 @@ function Set-Character {
     $state.Character = $Name
     $state.Legs = $characterAnimations[$Name].Legs
     $state.Glow = $characterAnimations[$Name].Glow
+    $ui.BubbleShift.Y = [double]$characters[$Name].BubbleDrop   # bublina u hlavy i u nižší postavy
     foreach ($other in $characters.Keys) {
         $ui[$characters[$other].Element].Visibility = if ($other -eq $Name) { 'Visible' } else { 'Collapsed' }
     }
@@ -2834,7 +2839,7 @@ try {
 
 $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $ui = @{}
-foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses',
+foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'BubbleShift', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses',
     'CostumeShift', 'CharDuck', 'path2', 'path4', 'path6', 'circle12', 'circle14', 'SleepEye',
     'CharChicken', 'ChickenLegL', 'ChickenLegR', 'ChickenBody', 'ChickenEye', 'ChickenPupil', 'ChickenSleepEye', 'ChickenComb',
     'CharMinion', 'MinionLegL', 'MinionLegR', 'MinionBody', 'MinionEye', 'MinionIris', 'MinionPupil', 'MinionSleepEye', 'MinionHair',

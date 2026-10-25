@@ -102,7 +102,8 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   (`Tilt` = Canvas s `RotateTransform`, `TiltAngle`; převleky jsou v `CostumeTilt` se stejným středem otáčení a kolébají se
   s trupem – obojí animuje storyboard nohou, takže se kolébá jen při pohybu), oči (`Eyes`,
   `SleepEye`), co schovat pod klobouk (`Hats`), které převleky jí sluší a o kolik je posunout (`Costumes`, `CostumeShift` →
-  `TranslateTransform` `CostumeShift`), `BeakOffset` pro krmení, hlas (`Voice` = tóny pro `New-QuackWave`, `WaveFile`) a slova
+  `TranslateTransform` `CostumeShift`), `BeakOffset` pro krmení, `BubbleDrop` (nižší postava má bublinu níž přes `TranslateTransform` `BubbleShift`; test hlídá,
+  že bublina není vysoko nad hlavou a nezasahuje do kresby ani převleků), hlas (`Voice` = tóny pro `New-QuackWave`, `WaveFile`) a slova
   do menu (`Accusative`, `Adjective`, `SoundName`). Každá postava má svoje storyboardy (`$characterAnimations`), aktuální jsou
   v `$state.Legs`/`$state.Glow`. `Set-Character` přepne kresbu, storyboardy, oči, převlek, ikonu a pozdraví (`Hello`); poloha
   a stav zůstávají. Hlášky bere `Get-PhraseList` (vlastní seznam postavy, jinak kachní; připomínky a situace po klíčích).
