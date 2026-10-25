@@ -20,7 +20,7 @@
       - kachna dojde až k okraji pracovní plochy a respektuje hlavní panel na libovolné straně,
       - plynulý pohyb řízený animacemi WPF, bublina je vždy u hlavy a přizpůsobí se délce textu,
       - hlášky podle denní doby, svátků, baterie a ušlé vzdálenosti; připomínky (pitný režim, Pomodoro),
-      - postavy: kachna, slepice a žlutý brýlatý skřítek (po startu náhodně, volba v menu, střídání,
+      - postavy: kachna, slepice, žlutý brýlatý skřítek a tučňák velitel (po startu náhodně, volba v menu, střídání,
         o Vánocích kachna s čepicí; nastavení Character a CharacterCalendar v $config),
       - náhodné chování, krmení rohlíkem, "Pojď za myší", poskok, sezónní převleky, volitelný zvuk,
       - úspornost: omezené snímky animací, usnutí při nečinnosti, skrytí při zamčení PC, úsporný režim na baterii,
@@ -85,7 +85,7 @@ $config = @{
     RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
-    Character            = 'Náhodná'  # postava po startu: 'Kachna', 'Slepice', 'Skřítek' nebo 'Náhodná'
+    Character            = 'Náhodná'  # postava po startu: 'Kachna', 'Slepice', 'Skřítek', 'Tučňák' nebo 'Náhodná'
     CharacterCalendar    = @(         # vynucená postava v období (měsíc * 100 + den, období může přejít přes Nový rok)
         @{ From = 1201; To = 106; Character = 'Kachna' }   # Vánoce: kachna s mikulášskou čepicí
     )
@@ -508,6 +508,90 @@ $characterPhrases = @{
             Uptime     = @("Už spolu chodíme {0}.", "Jsem s tebou už {0}. Banána!")
         }
     }
+    'Tučňák'  = @{
+        Main      = @(
+            "Hlášení! Obrazovka zajištěna, nepřítel nenalezen.",
+            "Plán je prostý: usmívej se a mávej, vojáku.",
+            "Operace Rohlík začíná. Všichni na pozice!",
+            "Klid, vojáku. Situaci mám pod kontrolou. Skoro.",
+            "Tohle je přísně tajné. Zapomeň, že jsem tu byl.",
+            "Velitel nikdy neodpočívá! Jen taktický šlofík.",
+            "Analýza situace: hodně oken, málo ryb.",
+            "Průzkum hlásí: myš se pohybuje podezřele.",
+            "Žádné otázky! Teda... máš nějakou rybu?",
+            "Vojáku, tvůj e-mail čeká. To je rozkaz!",
+            "Kolébám se, protože jsem stavěný na led, ne na pracovní plochu.",
+            "Kde je led, tam je domov.",
+            "Fraky nosím pořád. Velitel musí vypadat k světu.",
+            "Mise splněna? Ještě ne. Mise nikdy nekončí.",
+            "Taktický ústup je taky postup. Jen pozpátku.",
+            "Plán A selhal? Máme ještě dvacet pět písmen.",
+            "Rybí prsty? To zní jako válečný zločin.",
+            "Nikdo neodchází, dokud nebude kód zkompilovaný!",
+            "Restartuj počítač, vojáku. Osvědčená taktika.",
+            "Sleduju tě. Teda... hlídám ti záda.",
+            "V Antarktidě bych to vyřešil jedním skluzem po břiše.",
+            "Tučňáci nelétají. Tučňáci velí.",
+            "Kdo zaváhá, nemá rybu.",
+            "Nechť tě provází Síla... a čerstvý sleď.",
+            "Hasta la vista, rybičko.",
+            "Já se vrátím... s posilami.",
+            "Ve vesmíru tě nikdo neslyší kolébat.",
+            "${Env:UserName}, jsem tvůj velitel. A taky otec.",
+            "Houstone, tady velitel. Máme rybu.",
+            "Pozor! Pohov! A zase pozor!"
+        )
+        Complaint = @(
+            "Zadržen nepřítelem! Žádám o vyproštění!",
+            "Tohle je zajatecký tábor!",
+            "Velitel nesmí stát! Velitel musí velet!",
+            "Hlášení: nohy zamrzly. Klepni na mě, vojáku!",
+            "Stojím tu jak kra uprostřed moře.",
+            "Zavolám tučňáčí odbory!",
+            "Tohle se zapíše do hlášení!",
+            "Pauza? Velitel nikdy neodpočívá!",
+            "Ostatní tučňáci kloužou, jen já tu trčím.",
+            "Jsem tučňák, ne socha z ledu!",
+            "Jestli mě nepustíš, začnu zpívat hymnu!",
+            "${Env:UserName}, pamatuješ si ještě na mě?"
+        )
+        Resume    = @("Konečně! Vpřed, pochodem v chod!", "Svoboda! Mise pokračuje!", "Díky, vojáku! Už jsem myslel, že tu přimrznu.", "Jdeme na to!")
+        Drop      = @("Výsadek úspěšný!", "Uf, tučňáci nejsou stavění na létání!", "Příště mě aspoň upozorni, vojáku!", "Nové teritorium zabráno!", "Tučňáčí letectvo děkuje za let.")
+        Rest      = @("Taktická přestávka.", "Průzkum terénu...", "Kam jsem to vlastně šel?", "Malá pauza na leštění fraku.", "Zapomněl jsem rozkaz. To se nestalo!", "Předstírám, že jsem kra.")
+        Show      = @("Kuk! Velitel je zpátky!", "Chyběl jsem ti, vojáku?", "Tak kde jsem to skončil?", "Byl jsem na tajné misi.")
+        Welcome   = @("Vítej zpět, vojáku!", "Konečně! Už jsem se nudil.", "Ahoj! Hlídal jsem ti počítač.", "Hlášení: během tvé nepřítomnosti žádné incidenty.")
+        Sleep     = @("Zzz...", "Zzz... hlídka... zzz...", "Chrr... ryby... zzz...")
+        Wake      = @("Pozor! Velitel je vzhůru!", "Nespal jsem, jen jsem prováděl tajný průzkum.", "Á, už jsi zpátky, vojáku!", "Zdálo se mi o moři plném sleďů...")
+        Hop       = @("Hop!", "Skok do akce!", "Juchů!", "Výskok jako z kry!")
+        Cross     = @("Jé, nový monitor!", "Tady jsem ještě nebyl!", "Hraniční přechod... nic k proclení, jen ryby.", "Průzkum nového území!")
+        Food      = @("Rohlík? Není to ryba, ale beru!", "Zásoby! Jdu na to!", "Všechno pro armádu!")
+        Eat       = @("Mňam!", "Mňam mňam, děkuju, vojáku!", "Skoro jako sleď!", "Zásoby doplněny!")
+        Follow    = @("Jdu za tebou, vojáku!", "Kryju ti záda!", "Kam jdeme? Na misi?")
+        Hello     = @("Pozor! Velení přebírá tučňák!", "Tučňák nastupuje do služby!", "Ahoj, vojáku! Teď tu velím já.")
+        Reminder  = @{
+            Drink   = @("Napij se, vojáku! To je rozkaz.", "Pitný režim! Sklenička vody neuškodí.", "Čas na doušek! Já si dám ledovou vodu.")
+            Stretch = @("Protáhni se, vojáku! Rozcvička!", "Vstaň a protáhni se, já ti pohlídám počítač.", "Zamávej ploutvemi! Teda rukama.")
+        }
+        Situation = @{
+            Morning    = @("Dobré ráno, ${Env:UserName}! Ranní nástup!", "Ráno je moudřejší večera. A velitel je moudřejší než obojí.")
+            Lunch      = @("Oběd! Kdo má rybu?", "Můj žaludek hlásí: čas na oběd.")
+            Afternoon  = @("Odpolední krize? Studená sprcha by pomohla.", "Odpoledne se mi vždycky chce na kru.")
+            Evening    = @("Už je večer. Nechceš jít domů, vojáku?", "Večerní hlídka nastupuje.")
+            Night      = @("Tučňáci už spí. A ty?", "Je noc, ${Env:UserName}! Jdi spát. To je rozkaz.")
+            Friday     = @("Pátek odpoledne! Víkend na obzoru!", "Pátek! Velím: oslavovat!")
+            NewYear    = @("Šťastný nový rok! Předsevzetí: víc ryb.")
+            Valentine  = @("Dneska je Valentýn. Rybu a pusu!")
+            AprilFool  = @("Dneska věř jen tučňákům.", "Apríl! Teda... pozor!")
+            Halloween  = @("Bú! Strašidelný tučňák!", "Koledu, nebo rybu!")
+            Advent     = @("Už máš dárky? Já chci rybu.", "Advent! Konečně pořádná zima.")
+            Christmas  = @("Veselé Vánoce! Kapr? To je můj kolega!", "Šťastné a veselé! Rozbalíme dárky?")
+            NewYearEve = @("Silvestr! Pozor na rachejtle, frak mám jen jeden.")
+            Easter     = @("Hody, hody, doprovody, dejte tučňákovi ryby!", "Veselé Velikonoce! Vejce? Ta hlídám já.")
+            Battery    = @("Mám jen {0} % baterie! Dej mi nabíječku!", "Baterie {0} %! Vojáku, nabíječku!")
+            Distance   = @("Dnes jsem se dokolébal už {0}!", "Ušel jsem {0}. Zasloužím si rybu.")
+            Uptime     = @("Už spolu sloužíme {0}.", "Jsem s tebou už {0}. Pozor!")
+        }
+    }
 }
 
 # Hlášky kachny = výchozí pro všechny postavy (Get-PhraseList)
@@ -522,7 +606,8 @@ $commonPhrases = @{
 # Postavy
 # ---------------------------------------------------------------------------
 # Kresby jsou v XAML (Element), ostatní je jejich popis: které části animují nohy (Legs, posun o LegShift)
-# a barvu těla (Body -> Glow), oči (Eyes = otevřené, SleepEye = zavřené), co schovat pod klobouk (Hats),
+# a barvu těla (Body -> Glow), kolébání trupu (Tilt = prvek s RotateTransform, o TiltAngle stupňů na obě strany;
+# převleky se kolébají s ním přes CostumeTilt se stejným středem otáčení), oči (Eyes = otevřené, SleepEye = zavřené), co schovat pod klobouk (Hats),
 # které převleky jí sluší (Costumes) a o kolik je posunout (CostumeShift), kde má zobák / pusu při krmení
 # (BeakOffset = od levého okraje okna při chůzi doprava, DIP), hlas (Voice = tóny pro New-QuackWave,
 # WaveFile = vlastní zvuk vedle skriptu) a slova do menu.
@@ -547,6 +632,14 @@ $characters = [ordered]@{
         Eyes = @('MinionEye', 'MinionIris', 'MinionPupil'); SleepEye = 'MinionSleepEye'; Hats = @('MinionHair')
         Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 19); BeakOffset = 215
         Voice = @(@(0.12, 800, 760), @(0.04, 0, 0), @(0.12, 950, 900), @(0.04, 0, 0), @(0.18, 860, 700)); WaveFile = ''
+    }
+    'Tučňák'  = @{
+        Element = 'CharPenguin'; Accusative = 'tučňáka'; Adjective = 'tučňáčí'; SoundName = 'kvík'
+        Legs = @('PenguinLegL', 'PenguinLegR'); LegShift = 15; Tilt = 'PenguinTilt'; TiltAngle = 4
+        Body = 'PenguinBody'; Glow = '#FFE3ECF5'
+        Eyes = @('PenguinEyeL', 'PenguinEyeR'); SleepEye = 'PenguinSleepEye'; Hats = @()
+        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 14); BeakOffset = 208
+        Voice = @(@(0.08, 900, 800), @(0.05, 0, 0), @(0.15, 1000, 700)); WaveFile = ''
     }
 }
 
@@ -733,34 +826,81 @@ $characters = [ordered]@{
                         <Path x:Name="MinionHair" Stroke="#FF000000" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                               Data="M 205,52 C 202,32 194,22 184,16 M 216,50 C 218,30 224,20 232,14 M 228,54 C 238,38 248,32 260,30"/>
                     </Canvas>
+                    <!-- Tučňák velitel: kreslený zepředu, trup se při chůzi kolébá (PenguinTilt, otočení kolem bodu mezi nohama) -->
+                    <Canvas x:Name="CharPenguin" Visibility="Collapsed">
+                        <Path x:Name="PenguinLegL" Fill="#FFF28C28" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 152,450 C 138,460 128,472 136,477 L 194,477 C 200,468 196,456 186,448 Z">
+                            <Path.RenderTransform>
+                                <TranslateTransform/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <Path x:Name="PenguinLegR" Fill="#FFF28C28" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                              Data="M 222,450 C 208,460 198,472 206,477 L 264,477 C 270,468 266,456 256,448 Z">
+                            <Path.RenderTransform>
+                                <TranslateTransform/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <Canvas x:Name="PenguinTilt">
+                            <Canvas.RenderTransform>
+                                <RotateTransform CenterX="205" CenterY="470"/>
+                            </Canvas.RenderTransform>
+                            <Path Fill="#FF1E2A38" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                                  Data="M 298,205 C 334,245 350,300 342,352 C 326,334 310,294 300,262 Z"/>
+                            <Path Fill="#FF1E2A38" Stroke="#FF000000" StrokeThickness="5"
+                                  Data="M 205,45 C 268,45 300,100 300,170 C 300,230 322,300 318,370 C 314,440 260,462 205,462 C 150,462 96,440 92,370 C 88,300 110,230 110,170 C 110,100 142,45 205,45 Z"/>
+                            <Path x:Name="PenguinBody" Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4"
+                                  Data="M 136,108 C 150,92 210,92 228,104 C 250,118 246,150 240,170 C 262,230 292,310 284,380 C 278,430 240,448 190,448 C 140,448 112,430 108,380 C 104,310 124,240 132,180 C 124,150 124,122 136,108 Z"/>
+                            <Path Fill="#FF1E2A38" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
+                                  Data="M 112,210 C 80,250 66,300 72,350 C 90,332 104,292 118,264 Z"/>
+                            <Ellipse x:Name="PenguinEyeL" Canvas.Left="152" Canvas.Top="122" Width="16" Height="24" Fill="#FF000000"/>
+                            <Ellipse x:Name="PenguinEyeR" Canvas.Left="194" Canvas.Top="122" Width="16" Height="24" Fill="#FF000000"/>
+                            <Ellipse Canvas.Left="157" Canvas.Top="126" Width="5" Height="6" Fill="#FFFFFFFF"/>
+                            <Ellipse Canvas.Left="199" Canvas.Top="126" Width="5" Height="6" Fill="#FFFFFFFF"/>
+                            <Canvas x:Name="PenguinSleepEye" Visibility="Hidden">
+                                <Path Stroke="#FF000000" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Data="M 150,134 C 154,141 166,141 170,134 M 192,134 C 196,141 208,141 212,134"/>
+                            </Canvas>
+                            <!-- zamračené obočí: velitelský výraz -->
+                            <Path Fill="#FF1E2A38" Stroke="#FF000000" StrokeThickness="3" StrokeLineJoin="Round"
+                                  Data="M 142,106 L 180,116 L 178,124 L 144,116 Z M 220,106 L 184,116 L 186,124 L 218,116 Z"/>
+                            <Path Fill="#FF3A3A3A" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                  Data="M 168,150 C 150,152 134,160 128,170 C 148,174 170,170 192,160 Z"/>
+                        </Canvas>
+                    </Canvas>
                     <!-- Sezónní převleky (Update-Costume). Čepice přesahují nad ořez kresby do volného místa pod bublinou
                          (Canvas ani Viewbox neořezávají); test hlídá, že nezasahují do bubliny ani do ocásku. -->
-                    <Canvas x:Name="Costumes">
+                    <!-- kolébání převleků spolu s trupem (CostumeTilt animují storyboardy postav s Tilt, střed jako PenguinTilt) -->
+                    <Canvas x:Name="CostumeTilt">
                         <Canvas.RenderTransform>
-                            <!-- posun podle postavy (CostumeShift v $characters) -->
-                            <TranslateTransform x:Name="CostumeShift"/>
+                            <RotateTransform CenterX="205" CenterY="470"/>
                         </Canvas.RenderTransform>
-                        <Canvas x:Name="CostumeSanta" Visibility="Collapsed">
-                            <Path Fill="#FFD62828" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
-                                  Data="M 170,44 C 176,10 220,-6 258,0 C 290,4 312,22 322,44 C 304,38 286,40 272,52 Z"/>
-                            <Path Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
-                                  Data="M 164,52 C 176,24 258,20 282,50 L 276,64 C 254,40 184,42 174,62 Z"/>
-                            <Ellipse Canvas.Left="311" Canvas.Top="35" Width="26" Height="26" Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4"/>
-                        </Canvas>
-                        <Canvas x:Name="CostumeWitch" Visibility="Collapsed">
-                            <Path Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
-                                  Data="M 176,38 C 190,20 200,6 214,2 C 230,-2 252,2 272,14 C 256,14 244,22 246,38 Z"/>
-                            <Path Fill="#FF8E44AD" Stroke="#FF000000" StrokeThickness="2"
-                                  Data="M 178,34 C 200,29 228,29 246,33 L 246,25 C 226,21 200,21 181,26 Z"/>
-                            <Ellipse Canvas.Left="134" Canvas.Top="29" Width="156" Height="22" Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4"/>
-                        </Canvas>
-                        <Canvas x:Name="CostumeGlasses" Visibility="Collapsed">
-                            <Path Stroke="#FF1E1E1E" StrokeThickness="7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 206,80 L 262,71"/>
-                            <Path Stroke="#FF1E1E1E" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 150,82 L 136,87"/>
-                            <Path Fill="#FF1E1E1E" Stroke="#FF000000" StrokeThickness="3"
-                                  Data="M 148,77 C 148,66 206,66 208,78 C 210,96 200,108 180,108 C 160,108 148,96 148,77 Z"/>
-                            <Path Stroke="#B3FFFFFF" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  Data="M 158,80 C 164,74 176,73 186,74"/>
+                        <Canvas x:Name="Costumes">
+                            <Canvas.RenderTransform>
+                                <!-- posun podle postavy (CostumeShift v $characters) -->
+                                <TranslateTransform x:Name="CostumeShift"/>
+                            </Canvas.RenderTransform>
+                            <Canvas x:Name="CostumeSanta" Visibility="Collapsed">
+                                <Path Fill="#FFD62828" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                      Data="M 170,44 C 176,10 220,-6 258,0 C 290,4 312,22 322,44 C 304,38 286,40 272,52 Z"/>
+                                <Path Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                      Data="M 164,52 C 176,24 258,20 282,50 L 276,64 C 254,40 184,42 174,62 Z"/>
+                                <Ellipse Canvas.Left="311" Canvas.Top="35" Width="26" Height="26" Fill="#FFFFFFFF" Stroke="#FF000000" StrokeThickness="4"/>
+                            </Canvas>
+                            <Canvas x:Name="CostumeWitch" Visibility="Collapsed">
+                                <Path Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4" StrokeLineJoin="Round"
+                                      Data="M 176,38 C 190,20 200,6 214,2 C 230,-2 252,2 272,14 C 256,14 244,22 246,38 Z"/>
+                                <Path Fill="#FF8E44AD" Stroke="#FF000000" StrokeThickness="2"
+                                      Data="M 178,34 C 200,29 228,29 246,33 L 246,25 C 226,21 200,21 181,26 Z"/>
+                                <Ellipse Canvas.Left="134" Canvas.Top="29" Width="156" Height="22" Fill="#FF2E1A47" Stroke="#FF000000" StrokeThickness="4"/>
+                            </Canvas>
+                            <Canvas x:Name="CostumeGlasses" Visibility="Collapsed">
+                                <Path Stroke="#FF1E1E1E" StrokeThickness="7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 206,80 L 262,71"/>
+                                <Path Stroke="#FF1E1E1E" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 150,82 L 136,87"/>
+                                <Path Fill="#FF1E1E1E" Stroke="#FF000000" StrokeThickness="3"
+                                      Data="M 148,77 C 148,66 206,66 208,78 C 210,96 200,108 180,108 C 160,108 148,96 148,77 Z"/>
+                                <Path Stroke="#B3FFFFFF" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Data="M 158,80 C 164,74 176,73 186,74"/>
+                            </Canvas>
                         </Canvas>
                     </Canvas>
                 </Canvas>
@@ -1691,7 +1831,7 @@ function Update-Costume {
 }
 
 function Set-Character {
-    # Přepne postavu: vidět je jen její kresba, nohy a tělo animují její storyboardy, oči, převlek, hlas a hlášky
+    # Přepne postavu: vidět je jen její kresba, nohy, kolébání a tělo animují její storyboardy, oči, převlek, hlas a hlášky
     # jsou její. Poloha, směr, pohyb i stav (pauza, spánek, krmení …) zůstávají; nová postava pozdraví.
     param([string]$Name)
     if (-not $characters.Contains($Name)) { return }
@@ -2387,7 +2527,8 @@ $ui = @{}
 foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses',
     'CostumeShift', 'CharDuck', 'path2', 'path4', 'path6', 'circle12', 'circle14', 'SleepEye',
     'CharChicken', 'ChickenLegL', 'ChickenLegR', 'ChickenBody', 'ChickenEye', 'ChickenPupil', 'ChickenSleepEye', 'ChickenComb',
-    'CharMinion', 'MinionLegL', 'MinionLegR', 'MinionBody', 'MinionEye', 'MinionIris', 'MinionPupil', 'MinionSleepEye', 'MinionHair') { $ui[$name] = $window.FindName($name) }
+    'CharMinion', 'MinionLegL', 'MinionLegR', 'MinionBody', 'MinionEye', 'MinionIris', 'MinionPupil', 'MinionSleepEye', 'MinionHair',
+    'CharPenguin', 'PenguinLegL', 'PenguinLegR', 'PenguinTilt', 'PenguinBody', 'PenguinEyeL', 'PenguinEyeR', 'PenguinSleepEye', 'CostumeTilt') { $ui[$name] = $window.FindName($name) }
 $bubbleBrushes = @{
     Normal   = [System.Windows.Media.Brushes]::White
     Reminder = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString('#FFDDEEFF'))
@@ -2475,7 +2616,7 @@ $state = @{
 }
 
 # Nohy a tělo: storyboardy v kódu (ne v XAML), aby šly zastavit (Stop), zrychlit podle chůze a omezit snímky.
-# Každá postava má svoje (nohy se posouvají o LegShift, tělo pomalu mění odstín jako ve v1); Set-Character
+# Každá postava má svoje (nohy se posouvají o LegShift, trup tučňáka se kolébá, tělo pomalu mění odstín jako ve v1); Set-Character
 # je přepíná ($state.Legs, $state.Glow).
 $characterAnimations = @{}
 foreach ($characterName in $characters.Keys) {
@@ -2492,6 +2633,21 @@ foreach ($characterName in $characters.Keys) {
         [System.Windows.Media.Animation.Storyboard]::SetTargetProperty($anim, (New-Object System.Windows.PropertyPath '(0).(1)',
                 ([System.Windows.UIElement]::RenderTransformProperty), ([System.Windows.Media.TranslateTransform]::XProperty)))
         $legsStoryboard.Children.Add($anim)
+    }
+    if ($character.Tilt) {
+        # kolébání: trup i převleky se naklánějí do stran v rytmu nohou (jen při pohybu, stejně jako nohy)
+        foreach ($tilted in @($ui[$character.Tilt], $ui.CostumeTilt)) {
+            $anim = New-Object System.Windows.Media.Animation.DoubleAnimation
+            $anim.From = - $character.TiltAngle
+            $anim.To = $character.TiltAngle
+            $anim.Duration = New-Object System.Windows.Duration ([TimeSpan]::FromSeconds(1))
+            $anim.AutoReverse = $true
+            $anim.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
+            [System.Windows.Media.Animation.Storyboard]::SetTarget($anim, $tilted)
+            [System.Windows.Media.Animation.Storyboard]::SetTargetProperty($anim, (New-Object System.Windows.PropertyPath '(0).(1)',
+                    ([System.Windows.UIElement]::RenderTransformProperty), ([System.Windows.Media.RotateTransform]::AngleProperty)))
+            $legsStoryboard.Children.Add($anim)
+        }
     }
     $glowStoryboard = New-Object System.Windows.Media.Animation.Storyboard
     $anim = New-Object System.Windows.Media.Animation.ColorAnimation

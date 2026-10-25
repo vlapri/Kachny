@@ -299,14 +299,20 @@ $winTopLeft = ConvertTo-LayerPoint $winW 0                           # okno v so
 $winBottomRight = ConvertTo-LayerPoint 0 $winH
 function Get-ShapeCheck {
     # Tvary prvku (i vnořené) posunuté o Dx, Dy: nejvyšší bod, odstup od ocásku bubliny, celé v okně, meze kresby.
-    param($Element, [double]$Dx = 0, [double]$Dy = 0, [double]$LegShift = 0)
+    # Tilt = kolébání o ±Tilt stupňů kolem středu CenterX, CenterY (po posunu).
+    param($Element, [double]$Dx = 0, [double]$Dy = 0, [double]$LegShift = 0, [double]$Tilt = 0, [double]$CenterX = 0, [double]$CenterY = 0)
     $shapes = @($Element.SelectNodes(".//*[local-name()='Path' or local-name()='Ellipse']") | ForEach-Object { Get-ShapePoints $_ })
     $r = [pscustomobject]@{ Count = $shapes.Count; MinY = [double]::MaxValue; MinTail = [double]::MaxValue; InWindow = $true
         Left = [double]::MaxValue; Right = [double]::MinValue; Bottom = [double]::MinValue }
     foreach ($s in $shapes) {
         foreach ($p0 in $s.Points) {
-            foreach ($shift in @(-$LegShift, $LegShift)) {
-                $p = @(($p0[0] + $Dx + $shift), ($p0[1] + $Dy))
+            foreach ($variant in @(-1, 1)) {
+                $p = @(($p0[0] + $Dx + $variant * $LegShift), ($p0[1] + $Dy))
+                if ($Tilt) {
+                    $a = $variant * $Tilt * [math]::PI / 180
+                    $vx = $p[0] - $CenterX; $vy = $p[1] - $CenterY
+                    $p = @(($CenterX + $vx * [math]::Cos($a) - $vy * [math]::Sin($a)), ($CenterY + $vx * [math]::Sin($a) + $vy * [math]::Cos($a)))
+                }
                 $r.MinY = [math]::Min($r.MinY, $p[1] - $s.Stroke)
                 $r.Bottom = [math]::Max($r.Bottom, $p[1] + $s.Stroke)
                 $r.Left = [math]::Min($r.Left, $p[0] - $s.Stroke)
@@ -334,18 +340,29 @@ foreach ($name in $characters.Keys) {
     Assert-True ($byName[$c.SleepEye].Visibility -eq 'Hidden') "$($name): zavřené oko je vidět jen ve spánku"
     $legShapes = @($c.Legs | ForEach-Object { Get-ShapeCheck $byName[$_] -LegShift $c.LegShift })
     $all = @(Get-ShapeCheck $element) + $legShapes
+    $tiltArgs = @{}
+    if ($c.Tilt) {
+        # kolébání: trup se naklání kolem středu RotateTransform, převleky (CostumeTilt) kolem stejného bodu
+        $rotate = $byName[$c.Tilt].SelectSingleNode("./*[local-name()='Canvas.RenderTransform']/*[local-name()='RotateTransform']")
+        $costumeRotate = $byName['CostumeTilt'].SelectSingleNode("./*[local-name()='Canvas.RenderTransform']/*[local-name()='RotateTransform']")
+        Assert-True ($null -ne $rotate -and $null -ne $costumeRotate -and $rotate.CenterX -eq $costumeRotate.CenterX -and $rotate.CenterY -eq $costumeRotate.CenterY -and $c.TiltAngle -gt 0 -and $c.TiltAngle -le 10) "$($name): kolébá se o ±$($c.TiltAngle)° a převleky se kolébají kolem stejného bodu"
+        $tiltArgs = @{ Tilt = $c.TiltAngle; CenterX = [double]$rotate.CenterX; CenterY = [double]$rotate.CenterY }
+        $all += Get-ShapeCheck $byName[$c.Tilt] @tiltArgs
+    }
     $l = ($all | Measure-Object Left -Minimum).Minimum; $r = ($all | Measure-Object Right -Maximum).Maximum
     $b = ($all | Measure-Object Bottom -Maximum).Maximum
     Assert-True ($l -ge $cropL -and $r -le $cropR -and $b -le $cropB) ("$($name): ořez ji neusekne do stran ani dole i s nohama (x {0:N1}..{1:N1}, dole {2:N1})" -f $l, $r, $b)
     $top = Get-ShapeCheck $element
+    if ($c.Tilt) { $top = Get-ShapeCheck $byName[$c.Tilt] @tiltArgs }
     Assert-True ($top.MinY -ge $bubbleLimitY -and $top.MinTail -gt 0 -and $top.InWindow) ("$($name): nesahá do bubliny ani do ocásku a je celá v okně (nejvýš y {0:N1})" -f $top.MinY)
     Assert-True ($c.BeakOffset -gt 0 -and $c.BeakOffset -lt $winW) "$($name): zobák / pusa pro krmení je v okně ($($c.BeakOffset) DIP)"
     # Převleky na její hlavě (posun CostumeShift)
     foreach ($costume in $c.Costumes) {
-        $s = Get-ShapeCheck $byName["Costume$costume"] -Dx $c.CostumeShift[0] -Dy $c.CostumeShift[1]
+        $s = Get-ShapeCheck $byName["Costume$costume"] -Dx $c.CostumeShift[0] -Dy $c.CostumeShift[1] @tiltArgs
         Assert-True ($s.MinY -ge $bubbleLimitY -and $s.MinTail -gt 0 -and $s.InWindow) ("$($name) + $($costume): převlek nesahá do bubliny ani do ocásku a je celý v okně (nejvýš y {0:N1}, odstup {1:N1})" -f $s.MinY, $s.MinTail)
     }
 }
+Assert-True ($v2Text.Contains('RotateTransform]::AngleProperty') -and $v2Text.Contains('$ui.CostumeTilt')) 'kolébání animuje storyboard nohou (trup i převleky, jen při pohybu)'
 Assert-True ($byName['CostumeShift'].LocalName -eq 'TranslateTransform' -and $byName['Costumes'].SelectNodes("./*[local-name()='Canvas']").Count -eq 3) 'převleky se posouvají společně (CostumeShift)'
 foreach ($costume in 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses') {
     $s = Get-ShapeCheck $byName[$costume]
@@ -443,11 +460,13 @@ foreach ($name in $characterPhrases.Keys) {
     Assert-True ($duckish.Count -eq 0) "$($name): nemluví jako kachna (kvák, kachna, rybník)"
     $allPhrases.AddRange($texts)
 }
-$feminine = @(foreach ($list in $characterPhrases['Skřítek'].Values) { foreach ($v in $(if ($list -is [hashtable]) { $list.Values } else { , $list })) { $v } }) +
-    @(foreach ($list in $commonPhrases.Keys) { if (-not $characterPhrases['Skřítek'].ContainsKey($list) -and $list -notin 'Reminder', 'Situation') { $commonPhrases[$list] } })
-$feminine = @($feminine | Where-Object { $_ -match '(?i)\b(byla|šla|ušla|myslela|nudila|spala|hlídala|zapomněla|nechala|chyběla|skončila|nebyla|jistá|ráda|sama)\b' })
-$feminine | ForEach-Object { Write-Host "          v ženském rodě: $_" -ForegroundColor Red }
-Assert-True ($feminine.Count -eq 0) 'skřítek mluví v mužském rodě'
+foreach ($name in 'Skřítek', 'Tučňák') {
+    $feminine = @(foreach ($list in $characterPhrases[$name].Values) { foreach ($v in $(if ($list -is [hashtable]) { $list.Values } else { , $list })) { $v } }) +
+        @(foreach ($list in $commonPhrases.Keys) { if (-not $characterPhrases[$name].ContainsKey($list) -and $list -notin 'Reminder', 'Situation') { $commonPhrases[$list] } })
+    $feminine = @($feminine | Where-Object { $_ -match '(?i)\b(byla|šla|ušla|myslela|nudila|spala|hlídala|zapomněla|nechala|chyběla|skončila|nebyla|jistá|ráda|sama)\b' })
+    $feminine | ForEach-Object { Write-Host "          v ženském rodě: $_" -ForegroundColor Red }
+    Assert-True ($feminine.Count -eq 0) "$($name) mluví v mužském rodě"
+}
 
 # odhad: ~7,2 DIP na znak při FontSize 14, text široký 206 DIP; +20 znaků rezerva na dlouhé uživatelské jméno
 $tooLong = @($allPhrases | Where-Object { [math]::Ceiling(($_.Length + 20) * 7.2 / 206) -gt 5 })
@@ -1461,7 +1480,7 @@ Assert-True ((Get-ForcedCharacter ([datetime]'2026-04-15') $rules) -eq 'Slepice'
 Assert-True ((Get-StartCharacter $names 'Slepice' 'Kachna' 7) -eq 'Kachna' -and (Get-StartCharacter $names 'Skřítek' '' 7) -eq 'Skřítek') 'start: kalendář má přednost před nastavením'
 $started = @(0..29 | ForEach-Object { Get-StartCharacter $names 'Náhodná' '' $_ } | Sort-Object -Unique)
 Assert-True ($started.Count -eq $names.Count) "start s 'Náhodná': může to být kterákoli postava ($($started -join ', '))"
-Assert-True ((Get-NextCharacter $names 'Kachna' $true 0) -eq 'Slepice' -and (Get-NextCharacter $names 'Skřítek' $true 0) -eq 'Kachna') 'střídání popořadě: za poslední zase první'
+Assert-True ((Get-NextCharacter $names 'Kachna' $true 0) -eq 'Slepice' -and (Get-NextCharacter $names $names[-1] $true 0) -eq 'Kachna') 'střídání popořadě: za poslední zase první'
 $next = @(0..19 | ForEach-Object { Get-NextCharacter $names 'Slepice' $false $_ } | Sort-Object -Unique)
 Assert-True ($next.Count -eq $names.Count - 1 -and $next -notcontains 'Slepice') "náhodné střídání: vždy jiná postava ($($next -join ', '))"
 Assert-True ((Get-NextCharacter @('Kachna') 'Kachna' $false 3) -eq 'Kachna') 'střídání s jedinou postavou: zůstane'
@@ -1528,6 +1547,19 @@ Assert-True ($sim.Anims['Left'].To -eq 1500 - $characters.Skřítek.BeakOffset) 
 [void](Invoke-Sim -Seconds 120)
 Assert-True ($null -eq $state.Food -and $ui.SpeechText.Text -notmatch '(?i)kv[aá]k') 'skřítek rohlík sní'
 
+# Tučňák velitel: kolébání je součást storyboardu nohou (jen při pohybu)
+Reset-Duck $main
+Invoke-Menu 'Postava', 'Tučňák'
+Assert-True ($state.Character -eq 'Tučňák' -and $ui.CharPenguin.Visibility -eq 'Visible' -and $state.Legs -eq $characterAnimations['Tučňák'].Legs -and $state.Legs.Running -and $ui.SpeechText.Text -in $characterPhrases['Tučňák'].Hello) "tučňák přebírá velení: '$($ui.SpeechText.Text)'"
+Set-Paused $true
+Assert-True (-not $state.Legs.Running -and $ui.SpeechText.Text -in $characterPhrases['Tučňák'].Complaint) 'v pauze stojí (nekolébá se) a stěžuje si'
+Set-Paused $false
+$sim.Now = [datetime]'2026-12-10 10:00'
+Update-Costume
+Assert-True ($ui.CostumeSanta.Visibility -eq 'Visible' -and $ui.CostumeShift.Y -eq $characters['Tučňák'].CostumeShift[1]) 'tučňák v prosinci: čepice na jeho hlavě'
+Update-MenuState -Items $menuItems -Tray $false
+Assert-True ($null -ne (Find-MenuItem -Items $menuItems -Path 'Skrýt tučňáka') -and $null -ne (Find-MenuItem -Items $menuItems -Path 'Nastavení', 'Zvuk (kvík)')) 'menu: Skrýt tučňáka, Zvuk (kvík)'
+
 # Střídání postav a kalendář
 Reset-Duck $main
 Invoke-Menu 'Střídat postavy', 'Každých 15 minut'
@@ -1537,8 +1569,8 @@ $track = Invoke-Sim -Seconds 70 -Step 1
 Assert-True ($state.Character -ne 'Kachna' -and @($track.Texts | Where-Object { $_ -in $characterPhrases[$state.Character].Hello }).Count -eq 1) "po 15 minutách přijde jiná postava ($($state.Character))"
 Invoke-Menu 'Nastavení', 'Střídat postavy popořadě'
 Set-Character 'Kachna'
-$order = @(1..3 | ForEach-Object { [void](Invoke-Sim -Seconds (15 * 60 + 2) -Step 1); $state.Character })
-Assert-True (($order -join ',') -eq 'Slepice,Skřítek,Kachna') "střídání popořadě: $($order -join ' -> ')"
+$order = @(1..4 | ForEach-Object { [void](Invoke-Sim -Seconds (15 * 60 + 2) -Step 1); $state.Character })
+Assert-True (($order -join ',') -eq 'Slepice,Skřítek,Tučňák,Kachna') "střídání popořadě: $($order -join ' -> ')"
 Invoke-Menu 'Střídat postavy', 'Nestřídat'
 [void](Invoke-Sim -Seconds (20 * 60) -Step 1)
 Assert-True ($state.Character -eq 'Kachna') 'Nestřídat: postava zůstane'
