@@ -460,7 +460,7 @@ foreach ($name in $characterPhrases.Keys) {
     Assert-True ($duckish.Count -eq 0) "$($name): nemluví jako kachna (kvák, kachna, rybník)"
     $allPhrases.AddRange($texts)
 }
-foreach ($name in 'Skřítek', 'Tučňák') {
+foreach ($name in 'Skřítek', 'Tučňák', 'Robot') {
     $feminine = @(foreach ($list in $characterPhrases[$name].Values) { foreach ($v in $(if ($list -is [hashtable]) { $list.Values } else { , $list })) { $v } }) +
         @(foreach ($list in $commonPhrases.Keys) { if (-not $characterPhrases[$name].ContainsKey($list) -and $list -notin 'Reminder', 'Situation') { $commonPhrases[$list] } })
     $feminine = @($feminine | Where-Object { $_ -match '(?i)\b(byla|šla|ušla|myslela|nudila|spala|hlídala|zapomněla|nechala|chyběla|skončila|nebyla|jistá|ráda|sama)\b' })
@@ -1560,6 +1560,19 @@ Assert-True ($ui.CostumeSanta.Visibility -eq 'Visible' -and $ui.CostumeShift.Y -
 Update-MenuState -Items $menuItems -Tray $false
 Assert-True ($null -ne (Find-MenuItem -Items $menuItems -Path 'Skrýt tučňáka') -and $null -ne (Find-MenuItem -Items $menuItems -Path 'Nastavení', 'Zvuk (kvík)')) 'menu: Skrýt tučňáka, Zvuk (kvík)'
 
+# Robot uklízeč: hlášky o sbírání a recyklaci
+Reset-Duck $main
+Invoke-Menu 'Postava', 'Robot'
+Assert-True ($state.Character -eq 'Robot' -and $ui.CharRobot.Visibility -eq 'Visible' -and $state.Legs.Running -and $ui.SpeechText.Text -in $characterPhrases.Robot.Hello) "robot nastupuje: '$($ui.SpeechText.Text)'"
+$waste = @($characterPhrases.Robot.Main | Where-Object { $_ -match '(?i)tříd|recykl|odpad|sbír|sběr|koš|kontejner|plast|papír|sklo|lis|plýtv|kompost|vyhod|zálohov|nález|sbírk|uklí|úklid' })
+Assert-True ($waste.Count -ge 20) "robot mluví hlavně o sbírání a recyklaci ($($waste.Count) z $($characterPhrases.Robot.Main.Count) hlášek)"
+$sim.Active = $false
+[void](Invoke-Sim -Seconds ($config.IdleSleepMin * 60 + 2) -Step 1)
+Assert-True ($state.Sleeping -and $ui.RobotSleepEye.Visibility -eq 'Visible' -and $ui.RobotEyeL.Visibility -eq 'Hidden' -and $ui.RobotGlintR.Visibility -eq 'Hidden') 'robot usne: čočky zhasnou'
+$sim.Active = $true
+Step-Sim 2.0
+Assert-True (-not $state.Sleeping -and $ui.RobotEyeL.Visibility -eq 'Visible' -and $ui.SpeechText.Text -in $characterPhrases.Robot.Wake) "a probudí se: '$($ui.SpeechText.Text)'"
+
 # Střídání postav a kalendář
 Reset-Duck $main
 Invoke-Menu 'Střídat postavy', 'Každých 15 minut'
@@ -1569,8 +1582,8 @@ $track = Invoke-Sim -Seconds 70 -Step 1
 Assert-True ($state.Character -ne 'Kachna' -and @($track.Texts | Where-Object { $_ -in $characterPhrases[$state.Character].Hello }).Count -eq 1) "po 15 minutách přijde jiná postava ($($state.Character))"
 Invoke-Menu 'Nastavení', 'Střídat postavy popořadě'
 Set-Character 'Kachna'
-$order = @(1..4 | ForEach-Object { [void](Invoke-Sim -Seconds (15 * 60 + 2) -Step 1); $state.Character })
-Assert-True (($order -join ',') -eq 'Slepice,Skřítek,Tučňák,Kachna') "střídání popořadě: $($order -join ' -> ')"
+$order = @(1..5 | ForEach-Object { [void](Invoke-Sim -Seconds (15 * 60 + 2) -Step 1); $state.Character })
+Assert-True (($order -join ',') -eq 'Slepice,Skřítek,Tučňák,Robot,Kachna') "střídání popořadě: $($order -join ' -> ')"
 Invoke-Menu 'Střídat postavy', 'Nestřídat'
 [void](Invoke-Sim -Seconds (20 * 60) -Step 1)
 Assert-True ($state.Character -eq 'Kachna') 'Nestřídat: postava zůstane'
