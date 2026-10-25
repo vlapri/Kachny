@@ -10,7 +10,7 @@
       - dvojklik ...................... poskok
       - přetažení levým tlačítkem ..... přesun kachny kamkoli, i na jiný monitor; po puštění spadne dolů
       - najetí myší na bublinu ........ bublina se na chvíli schová (dá se kliknout na okno pod ní)
-      - pravé tlačítko ................ menu (pauza, skrýt, skrýt na čas, postava, střídat postavy, nakrmit,
+      - pravé tlačítko ................ menu (pauza, skrýt, skrýt na čas, postava, velikost, střídat postavy, nakrmit,
                                         pojď za myší, rychlosti, úsporný režim, připomínky, nastavení, ukončit)
       - ikona v oznamovací oblasti .... stejné menu + "Přivolat kachnu k myši" (také dvojklikem na ikonu);
                                         tady se skrytá kachna zase zobrazí (skrytá stojí, mlčí a nic nedělá)
@@ -76,7 +76,7 @@ $config = @{
     BubbleHoverSec       = 3          # na jak dlouho se bublina schová, když na ni najede myš
     Gravity              = 3000       # zrychlení pádu (DIP/s²)
     RiseSpeed            = 800        # rychlost vynoření, když kachnu pustíš pod spodní okraj (DIP/s)
-    HopHeight            = 60         # výška poskoku (DIP)
+    HopHeight            = 60         # výška poskoku (DIP, u menší postavy úměrně nižší)
     ClickTolerance       = 4          # největší posun (DIP), který se ještě bere jako klepnutí
     HeartbeatSec         = 1          # jak často kachna "přemýšlí" (bublina, náhodné chování, připomínky, nečinnost)
     FollowHeartbeatSec   = 0.25       # ... když jde za myší (aby stíhala kurzor)
@@ -87,6 +87,12 @@ $config = @{
     RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
+    CharacterSizes       = [ordered]@{   # velikost postavy: měřítko kresby, písmo v bublině a výška okna (DIP)
+        '50 %'  = @{ Scale = 0.5; FontSize = 12; Height = 310 }    # užší bublina má víc řádků, proto je okno vyšší
+        '75 %'  = @{ Scale = 0.75; FontSize = 13; Height = 330 }
+        '100 %' = @{ Scale = 1.0; FontSize = 14; Height = 358 }
+    }
+    DefaultSize          = '100 %'
     Character            = 'Kachna'   # postava po startu: 'Kachna', 'Slepice', 'Skřítek', 'Tučňák', 'Robot' nebo 'Náhodná'
     CharacterCalendar    = @(         # vynucená postava v období (měsíc * 100 + den, období může přejít přes Nový rok)
         @{ From = 1201; To = 106; Character = 'Kachna' }   # Vánoce: kachna s mikulášskou čepicí
@@ -790,7 +796,12 @@ $characters = [ordered]@{
             </Border>
             <!-- Ocásek bubliny: neuzavřená cesta = bílá výplň překryje okraj bubliny, obrys jen po stranách -->
             <Path Grid.Row="1" Fill="{Binding Background, ElementName=SpeechBorder}" Stroke="Black" StrokeThickness="2" StrokeLineJoin="Round"
-                  Data="M 168,-2 L 205,13 L 192,-2"/>
+                  Data="M 168,-2 L 205,13 L 192,-2">
+                <Path.RenderTransform>
+                    <!-- u menší postavy se ocásek posune s hlavou (Set-CharacterSize) -->
+                    <ScaleTransform x:Name="BubbleTailScale" ScaleX="1"/>
+                </Path.RenderTransform>
+            </Path>
         </Grid>
 
         <!-- Kachna: plátno 640x480 z v1, oříznuté na samotnou kresbu (x 54..554, y 25..481) a zmenšené na polovinu -->
@@ -1620,7 +1631,7 @@ function Get-WalkPlan {
     }
     if ($null -ne $state.Food) {
         # zobák nad rohlík: kachna jde vždy dopředu (zobákem napřed), rohlík pod tělem sní na místě
-        $beak = (Get-Character).BeakOffset
+        $beak = (Get-Character).BeakOffset * $state.Scale
         $right = Get-Clamped -Value ($state.Food.X - $beak) -Min $state.MinX -Max $state.MaxX
         $left = Get-Clamped -Value ($state.Food.X - ($width - $beak)) -Min $state.MinX -Max $state.MaxX
         if ($right -ge $state.X) { return [pscustomobject]@{ X = $right; Direction = 1; Goal = 'Food' } }
@@ -1782,7 +1793,7 @@ function Start-Hop {
     Stop-Motion
     $state.FallReason = 'Hop'
     $state.Motion = 'HopUp'
-    $height = $config.HopHeight
+    $height = $config.HopHeight * $state.Scale
     Start-WindowAnimation -Property 'Top' -From $state.Y -To ($state.Y - $height) -Seconds ([math]::Sqrt(2 * $height / $config.Gravity)) -Fps (Get-FpsConfig).Fall -Ease 'EaseOut'
     if (-not $Quiet) {
         Show-Phrase (Get-PhraseList 'Hop')
@@ -1960,8 +1971,8 @@ function Update-Animation {
             $state.LegsRunning = $true
             $state.LegsFps = $fps.Legs
         }
-        # při pádu, poskoku a přenášení kmitají rychle, při chůzi podle rychlosti
-        $ratio = if ($state.Dragging -or $state.Motion -ne 'Walk') { 4.0 } else { [math]::Max(0.2, $state.Speed / $config.LegsBaseSpeed) }
+        # při pádu, poskoku a přenášení kmitají rychle, při chůzi podle rychlosti (menší postava má kratší krok)
+        $ratio = if ($state.Dragging -or $state.Motion -ne 'Walk') { 4.0 } else { [math]::Max(0.2, $state.Speed / $config.LegsBaseSpeed / $state.Scale) }
         $state.Legs.SetSpeedRatio($window, $ratio)
     } elseif ($state.LegsRunning) {
         $state.Legs.Stop($window)   # nohy u sebe
@@ -2023,7 +2034,7 @@ function Set-Character {
     $state.Character = $Name
     $state.Legs = $characterAnimations[$Name].Legs
     $state.Glow = $characterAnimations[$Name].Glow
-    $ui.BubbleShift.Y = [double]$characters[$Name].BubbleDrop   # bublina u hlavy i u nižší postavy
+    $ui.BubbleShift.Y = [double]$characters[$Name].BubbleDrop * $state.Scale   # bublina u hlavy i u nižší postavy
     foreach ($other in $characters.Keys) {
         $ui[$characters[$other].Element].Visibility = if ($other -eq $Name) { 'Visible' } else { 'Collapsed' }
     }
@@ -2074,6 +2085,37 @@ function Initialize-Character {
     $state.CalendarCharacter = Get-ForcedCharacter -Date (Get-Now) -Calendar $config.CharacterCalendar
     $preferred = if ($state.PreferredCharacter) { $state.PreferredCharacter } else { $config.Character }
     Set-Character (Get-StartCharacter -Names @($characters.Keys) -Preferred $preferred -Forced $state.CalendarCharacter -Roll (Get-Random -Maximum 1000))
+}
+
+function Set-CharacterSize {
+    # Velikost postavy (menu): zmenší se kresba (Viewbox) i okno, aby postava došla až k okraji obrazovky.
+    # Bublina je úměrně užší s menším písmem a víc řádky (okno je proto vyšší, $config.CharacterSizes).
+    # Postava zůstane stát nohama tam, kde byla, a jde dál; rychlost chůze se nemění.
+    param([string]$Name)
+    if (-not $config.CharacterSizes.Contains($Name)) { return }
+    $size = $config.CharacterSizes[$Name]
+    $scale = [double]$size.Scale
+    $walking = $state.Motion -eq 'Walk'
+    Stop-Motion
+    $bottom = $state.Y + $window.Height
+    $state.SizeName = $Name
+    $state.Scale = $scale
+    $window.Width = [math]::Round(260 * $scale)
+    $window.Height = [double]$size.Height
+    $ui.DuckViewbox.Width = 250 * $scale
+    $ui.DuckViewbox.Height = 228 * $scale
+    $ui.SpeechBubble.Width = [math]::Round(230 * $scale)
+    $ui.BubbleTailScale.ScaleX = $scale
+    $ui.SpeechText.FontSize = [double]$size.FontSize
+    $ui.BubbleShift.Y = [double](Get-Character).BubbleDrop * $scale
+    if ($null -ne $state.Area) {
+        Set-Area $state.Area
+        $state.X = Get-Clamped -Value $state.X -Min $state.MinX -Max $state.MaxX
+        $state.Y = if ($state.Falling) { $bottom - $window.Height } else { $state.GroundY }
+        Set-WindowPosition
+    }
+    Update-Animation
+    if ($walking) { Start-Walk } elseif ($state.AnimReady) { Update-Motion }   # po startu rozběhne kachnu až Loaded
 }
 
 # ---------------------------------------------------------------------------
@@ -2494,7 +2536,7 @@ function Get-SettingsPath { Join-Path $config.SettingsDir $config.SettingsFile }
 function Export-Setting {
     # Volby z menu, které si kachna pamatuje (poloha, pauza ani "Pojď za myší" ne).
     return [ordered]@{
-        Character = $state.Character; Rotation = $state.RotationName; RotateInOrder = $state.RotateInOrder
+        Character = $state.Character; Size = $state.SizeName; Rotation = $state.RotationName; RotateInOrder = $state.RotateInOrder
         Speed = $state.SpeedName; PhraseSpeed = $state.PhraseSpeedName; Eco = $state.EcoName
         Drink = $state.Reminders.Drink; Stretch = $state.Reminders.Stretch; Pomodoro = $state.Pomodoro
         RandomBehavior = $state.RandomBehavior; CrossMonitors = $state.CrossMonitors; Costumes = $state.Costumes
@@ -2524,6 +2566,7 @@ function Import-Setting {
     try { $data = [System.IO.File]::ReadAllText($path) | ConvertFrom-Json } catch { return }
     if ($null -eq $data) { return }
     if ($characters.Contains([string]$data.Character)) { $state.PreferredCharacter = [string]$data.Character }
+    if ($config.CharacterSizes.Contains([string]$data.Size)) { $state.SizeName = [string]$data.Size }
     if ($config.CharacterRotations.Contains([string]$data.Rotation)) { $state.RotationName = [string]$data.Rotation }
     if ($config.Speeds.Contains([string]$data.Speed)) { $state.SpeedName = [string]$data.Speed }
     if ($config.PhraseSpeeds.Contains([string]$data.PhraseSpeed)) { $state.PhraseSpeedName = [string]$data.PhraseSpeed }
@@ -2557,6 +2600,7 @@ function Reset-Setting {
     # Obnovit výchozí nastavení: volby z menu jako po prvním startu ($config). Zvuk se při tom neozve,
     # Pomodoro začne znovu jen tehdy, když se zapíná.
     Set-Speed $config.DefaultSpeed
+    Set-CharacterSize $config.DefaultSize
     Set-PhraseSpeed $config.DefaultPhraseSpeed
     Set-EcoMode $config.DefaultEco
     foreach ($key in @($config.Reminders.Keys)) {
@@ -2679,6 +2723,7 @@ $menuSpec = @(
     @{ Text = { "Přivolat $((Get-Character).Accusative) k myši" }; Action = { Invoke-Summon }; Tray = $true }
     '-'
     @{ Text = 'Postava'; Choices = { @($characters.Keys) + 'Náhodná' }; Check = { param($Choice) $Choice -eq $state.Character }; Action = { param($Choice) Select-Character $Choice } }
+    @{ Text = 'Velikost postavy'; Choices = { $config.CharacterSizes.Keys }; Check = { param($Choice) $Choice -eq $state.SizeName }; Action = { param($Choice) Set-CharacterSize $Choice } }
     @{ Text = 'Střídat postavy'; Choices = { $config.CharacterRotations.Keys }; Check = { param($Choice) $Choice -eq $state.RotationName }; Action = { param($Choice) Set-CharacterRotation $Choice } }
     '-'
     @{ Text = 'Nakrmit rohlíkem'; Action = { Start-Feeding } }
@@ -2839,7 +2884,7 @@ try {
 
 $window = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $ui = @{}
-foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'BubbleShift', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses',
+foreach ($name in 'RootFlip', 'TextFlip', 'SpeechText', 'SpeechBubble', 'SpeechBorder', 'BubbleShift', 'BubbleTailScale', 'DuckViewbox', 'CostumeSanta', 'CostumeWitch', 'CostumeGlasses',
     'CostumeShift', 'CharDuck', 'path2', 'path4', 'path6', 'circle12', 'circle14', 'SleepEye',
     'CharChicken', 'ChickenLegL', 'ChickenLegR', 'ChickenBody', 'ChickenEye', 'ChickenPupil', 'ChickenSleepEye', 'ChickenComb',
     'CharMinion', 'MinionLegL', 'MinionLegR', 'MinionBody', 'MinionEye', 'MinionIris', 'MinionPupil', 'MinionSleepEye', 'MinionHair',
@@ -2929,6 +2974,8 @@ $state = @{
     Players         = @{}         # přehrávač zvuku každé postavy (Start-Sound)
     SysHandlers     = $null
     ErrorShown      = $false
+    SizeName        = $config.DefaultSize   # velikost postavy (Set-CharacterSize)
+    Scale           = 1.0
     Remember        = $false      # Pamatovat si nastavení (soubor v $config.SettingsDir)
     PreferredCharacter = ''       # zapamatovaná postava pro start (Import-Setting)
 }
@@ -3048,6 +3095,7 @@ $window.Add_SourceInitialized({
 $window.Add_Loaded({
     Import-Setting
     Initialize-Character
+    Set-CharacterSize $state.SizeName
     Set-Topmost $state.Topmost
     $now = $clock.Elapsed.TotalSeconds
     $state.AnimReady = $true

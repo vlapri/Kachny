@@ -127,6 +127,11 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   Zástupce: `Initialize-Shortcut` na konci `Loaded` (složka Kachna + nabídka Start), `New-DesktopShortcut` z menu, obojí přes
   `Add-Shortcut` (jen když chybí; ikona `Save-DuckIcon`). Programové připnutí na Start Windows 10/11 neumožňují.
   `Get-SpecialFolder`, `New-Shortcut` (COM `WScript.Shell`) a `Save-DuckIcon` jsou malé kvůli testům.
+- **Velikost postavy** (menu, `$config.CharacterSizes` 50/75/100 %, výchozí 100 %): `Set-CharacterSize` zmenší kresbu
+  (`DuckViewbox` 250×228·s) i okno (šířka 260·s, výška z nastavení), bublinu (230·s, menší písmo, víc řádků – proto vyšší
+  okno), ocásek (`BubbleTailScale`); `BeakOffset`, `BubbleDrop` a `HopHeight` se násobí `$state.Scale`, nohy kmitají 1/s krát
+  rychleji, rychlost chůze zůstává. Postava zůstane stát nohama na místě. Test hlídá pro každou velikost okraje, bublinu
+  u hlavy, převleky i to, že se hlášky vejdou (100 % = XAML).
 - **Menu:** obě menu (WPF `ContextMenu` na kachně, WinForms `ContextMenuStrip` u ikony) se staví z jednoho seznamu `$menuSpec`
   (`Text` nebo scriptblock, `Action`, `Check`, `Choices`, `Items`, `Tray` = jen u ikony, `Gesture`). `Add-MenuEntry` je postaví,
   `Update-MenuState` při otevření nastaví popisky a zaškrtnutí, `Invoke-MenuEntry` provede akci. Podmenu nemají vlastní akci
@@ -182,6 +187,7 @@ Vykreslení WPF, skutečné DPI, chování myši a události Windows se na Linux
    úsporný režim, připomínky, převleky (změnou data), tichý režim, zvuk a „Vždy navrchu“.
    Pamatovat si nastavení (změnit volby, restartovat), Obnovit výchozí nastavení, Vytvořit zástupce na ploše; po startu zástupce
    Kachna v `%USERPROFILE%\Kachna` a v nabídce Start (spustí skript ze sdílené složky bez okna konzole).
+   Velikost postavy 50/75 %: bublina čitelná a nad hlavou, postava dojde k okraji, nohy i kolébání odpovídají.
    Postavy: přepnutí v menu za chůze (nohy a tělo se hýbou, bublina u hlavy), převleky na slepici a skřítkovi, zvuk každé postavy.
 6. Skrýt kachnu → zmizí a proces má ~0 % CPU; „Zobrazit kachnu“ u ikony → objeví se na stejném místě, ozve se a jde dál;
    přivolání skryté kachny ji ukáže u kurzoru.
