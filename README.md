@@ -44,15 +44,23 @@ Ovládání (Controls):
 | Pravé tlačítko na kachně (Right click) | Menu: Pauza, Skrýt kachnu, Skrýt na…, Postava, Střídat postavy, Nakrmit rohlíkem, Pojď za myší, Rychlost chůze, Rychlost hlášek, Úsporný režim, Připomínky, Nastavení, Ukončit. (Menu: Pause, Hide duck, Hide for…, Character, Rotate characters, Feed a bread roll, Follow the mouse, Walking speed, Phrase speed, Power saving, Reminders, Settings, Exit.) |
 | Ikona vedle hodin (Tray icon) | Stejné menu + „Přivolat kachnu k myši“, dvojklik také přivolá kachnu. Tady se skrytá kachna zase zobrazí („Zobrazit kachnu“). Skrytá kachna stojí, mlčí a nezatěžuje počítač. (Same menu + "Summon duck to mouse", double-click summons it too. A hidden duck is shown again here ("Show duck"). While hidden, the duck stands still, stays quiet and uses no CPU.) |
 
-V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, střídat postavy popořadě, zapnuté kachní hlášky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu.
-(Random behaviour, walking across monitors, seasonal costumes, rotate characters in order, duck phrases on, quiet mode (no bubbles), sound (quack), always on top.)
+V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, střídat postavy popořadě, zapnuté kachní hlášky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu, pamatovat si nastavení, obnovit výchozí nastavení, vytvořit zástupce na ploše.
+(Random behaviour, walking across monitors, seasonal costumes, rotate characters in order, duck phrases on, quiet mode (no bubbles), sound (quack), always on top, remember settings, restore default settings, create a desktop shortcut.)
 
-Postavy (Characters): kachna, slepice, žlutý brýlatý skřítek, tučňák velitel, který se při chůzi kolébá, a robot uklízeč VALL-I, který mluví hlavně o sbírání a recyklaci odpadu. Každá postava má vlastní hlášky, hlas a převleky.
-Po startu se postava vybere náhodně, v menu „Postava“ jde změnit a „Střídat postavy“ ji mění každých 15 minut, hodinu
+Pamatovat si nastavení (Remember settings): volby z menu se ukládají do `%USERPROFILE%\Kachna\nastaveni.json` a platí i po dalším
+spuštění; vypnutí soubor smaže. Při spuštění kachna vytvoří (pokud chybí) zástupce „Kachna“ ve složce `%USERPROFILE%\Kachna`
+a v nabídce Start; připnout na Start ho jde pravým tlačítkem („Připnout na Start“). Zástupce spouští skript ze sdílené
+složky `\\192.168.10.250\verejna$\Scripts\kachna2.ps1` (`ShortcutScript` v `$config`).
+(Menu choices are saved to `%USERPROFILE%\Kachna\nastaveni.json` and restored on the next start; turning it off deletes the
+file. On start the duck creates a "Kachna" shortcut (if missing) in `%USERPROFILE%\Kachna` and in the Start menu – pin it
+with right click → "Pin to Start". The shortcut runs the script from the network share set in `ShortcutScript`.)
+
+Postavy (Characters): kachna, slepice, žlutý brýlatý skřítek, tučňák velitel, který se při chůzi kolébá, a robot uklízeč R1, který mluví hlavně o sbírání a recyklaci odpadu. Každá postava má vlastní hlášky, hlas a převleky.
+Po startu chodí kachna, v menu „Postava“ jde změnit a „Střídat postavy“ ji mění každých 15 minut (výchozí), hodinu
 nebo 3 hodiny (náhodně, nebo popořadě). O Vánocích (1. 12. – 6. 1.) chodí kachna s mikulášskou čepicí. Výchozí postavu
 a kalendář jde změnit na začátku skriptu v `$config` (`Character`, `CharacterCalendar`).
-(Duck, hen, a yellow goggled sprite and a waddling penguin commander and VALL-I, a cleaning robot who talks mostly about collecting and recycling waste, each with its own phrases, voice and costumes. A random character is picked at
-start; change it in the "Character" menu, or let "Rotate characters" switch it every 15 minutes, hour or 3 hours. At
+(Duck, hen, a yellow goggled sprite and a waddling penguin commander and R1, a cleaning robot who talks mostly about collecting and recycling waste, each with its own phrases, voice and costumes. The duck starts;
+change the character in the "Character" menu; "Rotate characters" switches it randomly every 15 minutes by default (or every hour or 3 hours). At
 Christmas the duck with a Santa hat is forced. Change the default and the calendar in `$config` at the top of the script.)
 
 ![Postavy (Characters)](./postavy.png)

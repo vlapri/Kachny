@@ -562,6 +562,17 @@ function Show-Crumb {
     $sim.Crumb = [pscustomobject]@{ X = $X; Y = $Y; GroundY = $GroundY; Seconds = $Seconds; Fps = $Fps; Visible = $true }
 }
 function Hide-Crumb { if ($sim.Crumb) { $sim.Crumb.Visible = $false } }
+# Nastavení a zástupci jen v dočasné složce (místo %USERPROFILE%\Kachna, plochy a nabídky Start)
+$testDir = Join-Path ([System.IO.Path]::GetTempPath()) ('kachna-test-' + [guid]::NewGuid())
+$config.SettingsDir = Join-Path $testDir 'Kachna'
+$shortcutLog = New-Object System.Collections.ArrayList
+function Get-SpecialFolder { param([string]$Name) Join-Path $testDir $Name }
+function New-Shortcut {
+    param([string]$Path, [string]$Arguments, [string]$Icon, [string]$WorkingDirectory)
+    Set-Content -LiteralPath $Path -Value $Arguments
+    [void]$shortcutLog.Add([pscustomobject]@{ Path = $Path; Arguments = $Arguments; Icon = $Icon; WorkingDirectory = $WorkingDirectory })
+}
+function Save-DuckIcon { param([string]$Path) Set-Content -LiteralPath $Path -Value 'ikona' }
 function Set-FrameRate { param($Storyboard, [int]$Fps) $Storyboard.Fps = $Fps }
 
 # Animace okna: stejné křivky jako WPF (DoubleAnimation, QuadraticEase), Completed volá Complete-Motion
@@ -635,6 +646,7 @@ function Reset-Duck {
     foreach ($sb in @($characterAnimations.Values | ForEach-Object { $_.Legs; $_.Glow })) { $sb.Running = $false; $sb.Paused = $false; $sb.Begins = 0 }
     $script:state = Get-AssignedValue $v2.Ast 'state'
     $state.RandomBehavior = $false
+    $state.RotationName = 'Nestřídat'   # střídání postav (výchozí po 15 minutách) by testům měnilo hlášky; testuje se zvlášť
     Set-Character 'Kachna'
     $state.AnimReady = $true
     $sim.WindowArea = $Area; $sim.Layout = $null; $sim.Scale = $Scale; $sim.Cursor = '0,0'; $sim.Active = $true; $sim.Crumb = $null
@@ -1617,8 +1629,98 @@ $sim.Now = [datetime]'2026-12-24 10:00'
 Initialize-Character
 Assert-True ($state.Character -eq 'Kachna' -and $state.CalendarCharacter -eq 'Kachna') 'start o Vánocích: kachna'
 $sim.Now = [datetime]'2026-03-11 10:00'
+$seen = @(1..10 | ForEach-Object { $state.Character = ''; Initialize-Character; $state.Character } | Sort-Object -Unique)
+Assert-True (($seen -join ',') -eq 'Kachna') 'start mimo Vánoce: výchozí postava je kachna'
+$config.Character = 'Náhodná'
 $seen = @(1..30 | ForEach-Object { $state.Character = ''; Initialize-Character; $state.Character } | Sort-Object -Unique)
-Assert-True ($seen.Count -eq $names.Count) "start mimo Vánoce: náhodná postava ($($seen -join ', '))"
+$config.Character = 'Kachna'
+Assert-True ($seen.Count -eq $names.Count) "s nastavením 'Náhodná': náhodná postava ($($seen -join ', '))"
+Assert-True ($config.Character -eq 'Kachna' -and $config.DefaultRotation -eq 'Každých 15 minut' -and -not $config.RotateInOrder -and -not $config.Sound) 'výchozí: kachna, náhodné střídání po 15 minutách, zvuk vypnutý'
+
+# ===========================================================================
+Write-Section 'Pamatování nastavení a zástupci'
+# ===========================================================================
+$settingsPath = Join-Path $config.SettingsDir $config.SettingsFile
+Reset-Duck $main
+Assert-True (-not $state.Remember -and -not (Test-Path $settingsPath)) 'pamatování je ve výchozím stavu vypnuté, nic se neukládá'
+Invoke-Menu 'Rychlost chůze', 'Rychlá'
+Assert-True (-not (Test-Path $settingsPath)) 'bez pamatování se volby z menu neukládají'
+Invoke-Menu 'Nastavení', 'Pamatovat si nastavení'
+Assert-True ($state.Remember -and (Test-Path $settingsPath)) "zapnutí pamatování nastavení hned uloží ($settingsPath)"
+Invoke-Menu 'Postava', 'Slepice'
+Invoke-Menu 'Nastavení', 'Zvuk (kokodák)'
+Invoke-Menu 'Úsporný režim', 'Vždy'
+Invoke-Menu 'Připomínky', 'Pitný režim (každou hodinu)'
+Invoke-Menu 'Střídat postavy', 'Každou hodinu'
+$saved = Get-Content -Raw $settingsPath | ConvertFrom-Json
+Assert-True ($saved.Character -eq 'Slepice' -and $saved.Speed -eq 'Rychlá' -and $saved.Sound -eq $true -and $saved.Eco -eq 'Vždy' -and $saved.Drink -eq $false -and $saved.Rotation -eq 'Každou hodinu') 'každá volba v menu se hned uloží (postava, rychlost, zvuk, úsporný režim, připomínky, střídání)'
+# nový start: čerstvý stav, Loaded načte nastavení
+$script:state = Get-AssignedValue $v2.Ast 'state'
+$state.AnimReady = $true
+Import-Setting
+Initialize-Character
+Update-Speed
+Assert-True ($state.Remember -and $state.Character -eq 'Slepice' -and $state.SpeedName -eq 'Rychlá' -and $state.Speed -eq $config.Speeds['Rychlá'] -and $state.Sound -and $state.EcoMode -eq 'On' -and -not $state.Reminders.Drink -and $state.RotationName -eq 'Každou hodinu') 'po dalším startu platí zapamatované nastavení'
+Set-Content -LiteralPath $settingsPath -Value '{ "Character": "Drak", "Speed": "Světelná", "Sound": "ano", "Quiet": true }'
+$script:state = Get-AssignedValue $v2.Ast 'state'
+Import-Setting
+Initialize-Character
+Assert-True ($state.Remember -and $state.Character -eq 'Kachna' -and $state.SpeedName -eq $config.DefaultSpeed -and -not $state.Sound -and $state.Quiet) 'neznámé hodnoty se přeskočí, platné se použijí'
+Set-Content -LiteralPath $settingsPath -Value 'tohle není JSON {'
+$script:state = Get-AssignedValue $v2.Ast 'state'
+Import-Setting
+Assert-True ($state.Remember -and $state.SpeedName -eq $config.DefaultSpeed) 'poškozený soubor: výchozí nastavení (a příští změna ho přepíše)'
+
+Reset-Duck $main
+$state.Remember = $true
+Invoke-Menu 'Postava', 'Robot'
+Invoke-Menu 'Rychlost chůze', 'Pomalá'
+Invoke-Menu 'Nastavení', 'Tichý režim (bez bublin)'
+Invoke-Menu 'Nastavení', 'Zvuk (píp)'
+Invoke-Menu 'Nastavení', 'Vždy navrchu'
+Invoke-Menu 'Nastavení', 'Náhodné chování'
+$sim.Sounds = 0
+Invoke-Menu 'Nastavení', 'Obnovit výchozí nastavení'
+Assert-True ($state.Character -eq $config.Character -and $state.SpeedName -eq $config.DefaultSpeed -and $state.Speed -eq $config.Speeds[$config.DefaultSpeed] -and -not $state.Quiet -and -not $state.Sound -and $state.Topmost -and $window.Topmost -and -not $state.RandomBehavior -and $state.RotationName -eq $config.DefaultRotation -and $sim.Sounds -eq 0) 'Obnovit výchozí nastavení: postava, rychlost, tichý režim, zvuk, navrchu, střídání jako po startu (bez kváknutí)'
+Assert-True ($ui.SpeechText.Text -eq 'Nastavení je zase výchozí.' -and "$($ui.SpeechBubble.Visibility)" -eq 'Visible') "a kachna to oznámí: '$($ui.SpeechText.Text)'"
+$saved = Get-Content -Raw $settingsPath | ConvertFrom-Json
+Assert-True ($saved.Character -eq 'Kachna' -and $saved.Speed -eq $config.DefaultSpeed -and $saved.Sound -eq $false) 'výchozí nastavení se uloží (pamatování zůstává zapnuté)'
+Invoke-Menu 'Nastavení', 'Pamatovat si nastavení'
+Assert-True (-not $state.Remember -and -not (Test-Path $settingsPath)) 'vypnutí pamatování soubor smaže (další start s výchozím nastavením)'
+
+# Zástupci
+Reset-Duck $main
+$shortcutLog.Clear()
+Initialize-Shortcut
+$own = Join-Path $config.SettingsDir 'Kachna.lnk'
+$start = Join-Path (Get-SpecialFolder 'Programs') 'Kachna.lnk'
+$arguments = @($shortcutLog | ForEach-Object Arguments)
+Assert-True ((Test-Path $own) -and (Test-Path $start) -and $shortcutLog.Count -eq 2) 'po startu vznikne zástupce Kachna ve složce Kachna a v nabídce Start'
+Assert-True ($arguments[0] -eq "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"\\192.168.10.250\verejna$\Scripts\kachna2.ps1`"" -and $arguments[1] -eq $arguments[0]) "zástupce spouští skript ze sdílené složky: $($arguments[0])"
+Assert-True ((Test-Path (Join-Path $config.SettingsDir 'kachna.ico')) -and $shortcutLog[0].Icon -like '*kachna.ico' -and $shortcutLog[0].WorkingDirectory -eq $config.SettingsDir) 'zástupce má ikonu kachny'
+Initialize-Shortcut
+Assert-True ($shortcutLog.Count -eq 2) 'další start: zástupci už jsou, nic se nevytváří'
+Remove-Item $start
+Initialize-Shortcut
+Assert-True ($shortcutLog.Count -eq 3 -and (Test-Path $start)) 'smazaný zástupce v nabídce Start se při startu vytvoří znovu'
+$desktop = Join-Path (Get-SpecialFolder 'Desktop') 'Kachna.lnk'
+Assert-True (-not (Test-Path $desktop)) 'na plochu se sám nevytváří'
+Invoke-Menu 'Nastavení', 'Vytvořit zástupce na ploše'
+Assert-True ((Test-Path $desktop) -and $shortcutLog.Count -eq 4 -and $ui.SpeechText.Text -eq 'Zástupce je na ploše!') "menu: zástupce na ploše ('$($ui.SpeechText.Text)')"
+Invoke-Menu 'Nastavení', 'Vytvořit zástupce na ploše'
+Assert-True ($shortcutLog.Count -eq 4 -and $ui.SpeechText.Text -eq 'Zástupce na ploše už je.') "podruhé: '$($ui.SpeechText.Text)'"
+function New-Shortcut { throw 'COM není k dispozici' }
+Remove-Item $desktop
+Invoke-Menu 'Nastavení', 'Vytvořit zástupce na ploše'
+Assert-True ($ui.SpeechText.Text -eq 'Zástupce na ploše nejde vytvořit.') 'chyba při vytváření zástupce kachnu nezastaví'
+Remove-Item $start
+Initialize-Shortcut
+Assert-True $true 'chyba zástupce při startu se jen přeskočí'
+function New-Shortcut {
+    param([string]$Path, [string]$Arguments, [string]$Icon, [string]$WorkingDirectory)
+    Set-Content -LiteralPath $Path -Value $Arguments
+    [void]$shortcutLog.Add([pscustomobject]@{ Path = $Path; Arguments = $Arguments; Icon = $Icon; WorkingDirectory = $WorkingDirectory })
+}
 
 # ===========================================================================
 Write-Section 'Zvuk'
@@ -1641,6 +1743,7 @@ Assert-True (-not $state.Sound) 'zvuk jde zase vypnout'
 Write-Section 'Menu kachny a ikony'
 # ===========================================================================
 Reset-Duck $main
+Set-CharacterRotation $config.DefaultRotation
 Update-MenuState -Items $menuItems -Tray $false
 Update-MenuState -Items $trayItems -Tray $true
 $duckTop = @($menuItems | Where-Object { $_.Tag } | ForEach-Object { $_.Header })
@@ -1653,7 +1756,7 @@ $expectChecked = [ordered]@{
     'Nastavení|Zapnuté kachní hlášky' = $true; 'Nastavení|Tichý režim (bez bublin)' = $false; 'Nastavení|Zvuk (kvák)' = $false; 'Nastavení|Vždy navrchu' = $true
     'Připomínky|Pitný režim (každou hodinu)' = $true; 'Připomínky|Protažení (každé 2 hodiny)' = $true
     'Připomínky|Pomodoro (25 min práce, 5 min pauza)' = $true; 'Pojď za myší' = $false
-    'Postava|Kachna' = $true; 'Postava|Slepice' = $false; 'Postava|Náhodná' = $false; 'Střídat postavy|Nestřídat' = $true
+    'Postava|Kachna' = $true; 'Postava|Slepice' = $false; 'Postava|Náhodná' = $false; 'Střídat postavy|Každých 15 minut' = $true; 'Nastavení|Pamatovat si nastavení' = $false
     'Nastavení|Střídat postavy popořadě' = $false
 }
 $state.RandomBehavior = $false
@@ -1689,6 +1792,8 @@ if ($pssa) {
 } else {
     Write-Host '  [PŘESKOČENO] PSScriptAnalyzer není nainstalovaný (Install-Module PSScriptAnalyzer)' -ForegroundColor Yellow
 }
+
+Remove-Item -LiteralPath $testDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # ===========================================================================
 Write-Host ''
