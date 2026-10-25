@@ -15,6 +15,7 @@ Komunikace s uživatelem, texty v UI i komentáře v kódu jsou **česky**. Kach
 | `powershell_kachna.ps1` | Původní v1. **Neměnit**, pokud o to uživatel výslovně nepožádá. |
 | `linux_kachna*.sh` | Linuxová verze (bash). Uživatel teď pracuje jen s PowerShell verzí – neměnit bez požádání. |
 | `*.gif`, `coffee_qr.png`, `postavy.png` | Obrázky pro README. |
+| `%USERPROFILE%\Kachna\` (u uživatele) | `nastaveni.json` (Pamatovat si nastavení), `kachna.ico`, zástupce `Kachna.lnk`. Zástupce se při startu vytvoří i v nabídce Start (pokud chybí), na ploše z menu. Spouští `ShortcutScript` = `\\192.168.10.250\verejna$\Scripts\kachna2.ps1`. |
 
 ## Konvence souborů (hlídají je testy)
 
@@ -105,7 +106,7 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   do menu (`Accusative`, `Adjective`, `SoundName`). Každá postava má svoje storyboardy (`$characterAnimations`), aktuální jsou
   v `$state.Legs`/`$state.Glow`. `Set-Character` přepne kresbu, storyboardy, oči, převlek, ikonu a pozdraví (`Hello`); poloha
   a stav zůstávají. Hlášky bere `Get-PhraseList` (vlastní seznam postavy, jinak kachní; připomínky a situace po klíčích).
-  Slepice mluví v ženském rodě, skřítek, tučňák a robot v mužském (test hlídá); robot mluví hlavně o sbírání a recyklaci. Start: `Initialize-Character` (kalendář
+  Slepice mluví v ženském rodě, skřítek, tučňák a robot v mužském (test hlídá); robot (R1) mluví hlavně o sbírání a recyklaci. Start: `Initialize-Character` (kalendář
   `CharacterCalendar` → `Character` → náhodně), střídání `Invoke-CharacterRotation` v tepu (ne během období z kalendáře),
   kalendář `Update-CharacterCalendar` 1× za minutu přepne jen na začátku období (ruční volba pak platí).
   Nová postava = kresba `Char…` v XAML, záznam v `$characters`, jména prvků do `FindName` a hlášky v `$characterPhrases`.
@@ -118,6 +119,13 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   Kachna jde k němu zobákem napřed (`BeakOffset`), `EatSec` jí, pak poskočí. Přenesení na jiný monitor rohlík zruší.
 - **Zvuk** (výchozí vypnuto): `New-QuackWave` vygeneruje WAV do paměti podle hlasu postavy, `Start-Sound` přehraje
   (přehrávač pro každou postavu, u kachny má přednost `kvak.wav`).
+- **Nastavení a zástupci:** výchozí postava Kachna, střídání po 15 minutách náhodně, zvuk vypnutý. „Pamatovat si nastavení“:
+  `Invoke-MenuEntry` po každé volbě volá `Save-Setting` (`Export-Setting` → JSON, jen když `$state.Remember`); v `Loaded`
+  `Import-Setting` (soubor existuje = pamatování zapnuté; neplatné hodnoty se přeskočí) ještě před `Initialize-Character`
+  (`PreferredCharacter`). Vypnutí soubor smaže, `Reset-Setting` vrátí volby z menu na `$config` (bez kváknutí).
+  Zástupce: `Initialize-Shortcut` na konci `Loaded` (složka Kachna + nabídka Start), `New-DesktopShortcut` z menu, obojí přes
+  `Add-Shortcut` (jen když chybí; ikona `Save-DuckIcon`). Programové připnutí na Start Windows 10/11 neumožňují.
+  `Get-SpecialFolder`, `New-Shortcut` (COM `WScript.Shell`) a `Save-DuckIcon` jsou malé kvůli testům.
 - **Menu:** obě menu (WPF `ContextMenu` na kachně, WinForms `ContextMenuStrip` u ikony) se staví z jednoho seznamu `$menuSpec`
   (`Text` nebo scriptblock, `Action`, `Check`, `Choices`, `Items`, `Tray` = jen u ikony, `Gesture`). `Add-MenuEntry` je postaví,
   `Update-MenuState` při otevření nastaví popisky a zaškrtnutí, `Invoke-MenuEntry` provede akci. Podmenu nemají vlastní akci
@@ -135,7 +143,7 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   na Linuxu neexistují. Výčtové hodnoty předávej jako řetězec (`'Hidden'`, `'EaseIn'`), PowerShell je převede.
 - Funkce závislé na WPF/WinForms (`Get-DipScale`, `Get-WindowArea`, `Get-CursorArea`, `Get-AreaList`, `Get-CursorDip`,
   `Get-CursorKey`, `Get-PowerInfo`, `Get-Now`, `Start-WindowAnimation`, `Stop-WindowAnimation`, `Set-FrameRate`, `Show-Crumb`,
-  `Hide-Crumb`, `Start-Sound`, `New-MenuEntry`, `New-MenuSeparator`) jsou malé, aby je testy mohly nahradit.
+  `Hide-Crumb`, `Start-Sound`, `New-MenuEntry`, `New-MenuSeparator`, `Get-SpecialFolder`, `New-Shortcut`, `Save-DuckIcon`) jsou malé, aby je testy mohly nahradit.
 
 ## Testování
 
@@ -171,6 +179,8 @@ Vykreslení WPF, skutečné DPI, chování myši a události Windows se na Linux
    (po vypnutí „Chůze přes monitory“ se otočí).
 5. Pravé tlačítko → menu; ikona vedle hodin → totéž + přivolání. Vyzkoušet „Skrýt na…“, „Nakrmit rohlíkem“, „Pojď za myší“,
    úsporný režim, připomínky, převleky (změnou data), tichý režim, zvuk a „Vždy navrchu“.
+   Pamatovat si nastavení (změnit volby, restartovat), Obnovit výchozí nastavení, Vytvořit zástupce na ploše; po startu zástupce
+   Kachna v `%USERPROFILE%\Kachna` a v nabídce Start (spustí skript ze sdílené složky bez okna konzole).
    Postavy: přepnutí v menu za chůze (nohy a tělo se hýbou, bublina u hlavy), převleky na slepici a skřítkovi, zvuk každé postavy.
 6. Skrýt kachnu → zmizí a proces má ~0 % CPU; „Zobrazit kachnu“ u ikony → objeví se na stejném místě, ozve se a jde dál;
    přivolání skryté kachny ji ukáže u kurzoru.

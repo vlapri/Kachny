@@ -20,8 +20,10 @@
       - kachna dojde až k okraji pracovní plochy a respektuje hlavní panel na libovolné straně,
       - plynulý pohyb řízený animacemi WPF, bublina je vždy u hlavy a přizpůsobí se délce textu,
       - hlášky podle denní doby, svátků, baterie a ušlé vzdálenosti; připomínky (pitný režim, Pomodoro),
-      - postavy: kachna, slepice, žlutý brýlatý skřítek, tučňák velitel a robot uklízeč (po startu náhodně, volba v menu, střídání,
-        o Vánocích kachna s čepicí; nastavení Character a CharacterCalendar v $config),
+      - postavy: kachna, slepice, žlutý brýlatý skřítek, tučňák velitel a robot uklízeč R1 (po startu kachna, volba v menu,
+        náhodné střídání po 15 minutách, o Vánocích kachna s čepicí; nastavení Character a CharacterCalendar v $config),
+      - pamatování nastavení (%USERPROFILE%\Kachna\nastaveni.json), obnovení výchozího nastavení, zástupce Kachna
+        (složka Kachna, nabídka Start, z menu i na ploše) spouštějící skript ze sdílené složky,
       - náhodné chování, krmení rohlíkem, "Pojď za myší", poskok, sezónní převleky, volitelný zvuk,
       - úspornost: omezené snímky animací, usnutí při nečinnosti, skrytí při zamčení PC, úsporný režim na baterii,
       - reakce na změnu rozlišení nebo odpojení monitoru (kachna nezmizí mimo obrazovku).
@@ -85,12 +87,12 @@ $config = @{
     RandomBehavior       = $false      # náhodné zastavení / otočení / změna tempa
     CrossMonitors        = $true      # chůze přes okraj na sousední monitor
     Costumes             = $true      # převleky podle ročního období
-    Character            = 'Náhodná'  # postava po startu: 'Kachna', 'Slepice', 'Skřítek', 'Tučňák', 'Robot' nebo 'Náhodná'
+    Character            = 'Kachna'   # postava po startu: 'Kachna', 'Slepice', 'Skřítek', 'Tučňák', 'Robot' nebo 'Náhodná'
     CharacterCalendar    = @(         # vynucená postava v období (měsíc * 100 + den, období může přejít přes Nový rok)
         @{ From = 1201; To = 106; Character = 'Kachna' }   # Vánoce: kachna s mikulášskou čepicí
     )
     CharacterRotations   = [ordered]@{ 'Nestřídat' = 0; 'Každých 15 minut' = 15; 'Každou hodinu' = 60; 'Každé 3 hodiny' = 180 }
-    DefaultRotation      = 'Nestřídat'
+    DefaultRotation      = 'Každých 15 minut'
     RotateInOrder        = $false     # střídat postavy popořadě (jinak náhodně)
     Phrases              = $true      # kachní hlášky: sama od sebe mluví (při chůzi i stížnosti v pauze)
     Sound                = $false     # kvák při klepnutí, poskoku, jídle a připomínce
@@ -108,6 +110,10 @@ $config = @{
     CrumbSize            = @{ Width = 40; Height = 24 }  # okno s rohlíkem (DIP, stejně jako v $crumbXaml)
     SoftwareRendering    = $true      # kreslit bez grafické karty: u malého průhledného okna obvykle levnější (změř tests/Measure-KachnaV2.ps1)
     Priority             = 'BelowNormal'  # kachna nikdy nezpomalí práci
+    SettingsDir          = (Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Kachna')  # nastavení, ikona a zástupce
+    SettingsFile         = 'nastaveni.json'   # zapamatované volby z menu (Pamatovat si nastavení)
+    ShortcutName         = 'Kachna'           # zástupce ve složce Kachna, v nabídce Start a (z menu) na ploše
+    ShortcutScript       = '\\192.168.10.250\verejna$\Scripts\kachna2.ps1'   # skript, který zástupce spouští
 }
 
 # ---------------------------------------------------------------------------
@@ -650,7 +656,7 @@ $characterPhrases = @{
         Cross     = @("Jé, nový monitor!", "Tady jsem ještě nebyl!", "Nové území! Je tu co uklízet?", "Dobrý den, sousedé! Třídíte?")
         Food      = @("Rohlík! Ten by se neměl vyhodit!", "Zbytky? Zachráním je!", "Nic se nevyhodí!")
         Eat       = @("Rohlík zachráněn před košem!", "Hotovo! Nic se nevyhodilo.", "Píp! Zbytky zpracovány.", "Další? Plýtvání je hřích!")
-        Hello     = @("Píp píp! Robot VALL-I hlásí nástup!", "Robot uklízeč nastupuje do služby!", "Ahoj! Teď tu uklízím já.")
+        Hello     = @("Píp píp! Robot R1 hlásí nástup!", "Robot uklízeč nastupuje do služby!", "Ahoj! Teď tu uklízím já.")
         Reminder  = @{
             Drink   = @("Napij se! A lahev pak vrať nebo vytřiď.", "Pitný režim! Sklenička vody neuškodí.", "Čas na doušek! Já si dám kapku oleje.")
             Stretch = @("Protáhni se! Já si promažu klouby.", "Vstaň a protáhni se, já ti pohlídám počítač.", "Zamávej rukama! Já mám drapáky.")
@@ -728,7 +734,7 @@ $characters = [ordered]@{
         Element = 'CharRobot'; Accusative = 'robota'; Adjective = 'robotí'; SoundName = 'píp'
         Legs = @('RobotTreadL', 'RobotTreadR'); LegShift = 8; Body = 'RobotBody'; Glow = '#FFF0BC50'
         Eyes = @('RobotEyeL', 'RobotEyeR', 'RobotGlintL', 'RobotGlintR'); SleepEye = 'RobotSleepEye'; Hats = @()
-        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 4); BeakOffset = 238
+        Costumes = @('Santa', 'Witch'); CostumeShift = @(-2, 117); BeakOffset = 238
         Voice = @(@(0.06, 1200, 1200), @(0.03, 0, 0), @(0.06, 1500, 1500), @(0.03, 0, 0), @(0.14, 900, 1300)); WaveFile = ''
     }
 }
@@ -959,7 +965,7 @@ $characters = [ordered]@{
                     </Canvas>
                     <!-- Sezónní převleky (Update-Costume). Čepice přesahují nad ořez kresby do volného místa pod bublinou
                          (Canvas ani Viewbox neořezávají); test hlídá, že nezasahují do bubliny ani do ocásku. -->
-                    <!-- Robot VALL-I: uklízecí robot na pásech, oči jako dalekohled na teleskopickém krku -->
+                    <!-- Robot R1: uklízecí robot na pásech, hlava s očima jako dalekohled sedí přímo na těle -->
                     <Canvas x:Name="CharRobot" Visibility="Collapsed">
                         <Canvas x:Name="RobotTreadR">
                             <Canvas.RenderTransform>
@@ -972,8 +978,6 @@ $characters = [ordered]@{
                         </Canvas>
                         <Path Fill="#FFE0A030" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
                               Data="M 300,292 L 330,300 L 330,320 L 300,312 Z M 330,292 L 352,286 L 348,300 L 336,304 L 348,312 L 352,326 L 330,326 Z"/>
-                        <Path Fill="#FF8A8A8A" Stroke="#FF000000" StrokeThickness="4" Data="M 196,126 L 214,126 L 214,248 L 196,248 Z"/>
-                        <Path Fill="#FF6E6E6E" Stroke="#FF000000" StrokeThickness="3" Data="M 192,170 L 218,170 L 218,182 L 192,182 Z M 192,208 L 218,208 L 218,220 L 192,220 Z"/>
                         <Path x:Name="RobotBody" Fill="#FFE0A030" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
                               Data="M 112,245 L 300,245 L 300,425 L 112,425 Z"/>
                         <Path Fill="#FFC8861E" Stroke="#FF000000" StrokeThickness="3" Data="M 132,268 L 280,268 L 280,332 L 132,332 Z"/>
@@ -993,16 +997,16 @@ $characters = [ordered]@{
                         <Path Fill="#FFE0A030" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
                               Data="M 112,292 L 82,300 L 82,320 L 112,312 Z M 82,292 L 60,286 L 64,300 L 76,304 L 64,312 L 60,326 L 82,326 Z"/>
                         <Path Fill="#FF9AA0A6" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
-                              Data="M 120,70 C 120,60 128,56 138,58 L 196,66 C 204,68 206,74 206,82 L 206,118 C 206,126 200,130 192,130 L 134,130 C 124,130 120,124 120,116 Z"/>
+                              Data="M 120,183 C 120,173 128,169 138,171 L 196,179 C 204,181 206,187 206,195 L 206,231 C 206,239 200,243 192,243 L 134,243 C 124,243 120,237 120,229 Z"/>
                         <Path Fill="#FF9AA0A6" Stroke="#FF000000" StrokeThickness="5" StrokeLineJoin="Round"
-                              Data="M 290,70 C 290,60 282,56 272,58 L 222,66 C 214,68 212,74 212,82 L 212,118 C 212,126 218,130 226,130 L 278,130 C 286,130 290,124 290,116 Z"/>
-                        <Ellipse x:Name="RobotEyeL" Canvas.Left="138" Canvas.Top="76" Width="44" Height="44" Fill="#FF2B2B2B" StrokeThickness="4" Stroke="#FF000000"/>
-                        <Ellipse x:Name="RobotEyeR" Canvas.Left="228" Canvas.Top="76" Width="44" Height="44" Fill="#FF2B2B2B" StrokeThickness="4" Stroke="#FF000000"/>
-                        <Ellipse x:Name="RobotGlintL" Canvas.Left="146" Canvas.Top="84" Width="12" Height="12" Fill="#FFFFFFFF"/>
-                        <Ellipse x:Name="RobotGlintR" Canvas.Left="236" Canvas.Top="84" Width="12" Height="12" Fill="#FFFFFFFF"/>
+                              Data="M 290,183 C 290,173 282,169 272,171 L 222,179 C 214,181 212,187 212,195 L 212,231 C 212,239 218,243 226,243 L 278,243 C 286,243 290,237 290,229 Z"/>
+                        <Ellipse x:Name="RobotEyeL" Canvas.Left="138" Canvas.Top="189" Width="44" Height="44" Fill="#FF2B2B2B" StrokeThickness="4" Stroke="#FF000000"/>
+                        <Ellipse x:Name="RobotEyeR" Canvas.Left="228" Canvas.Top="189" Width="44" Height="44" Fill="#FF2B2B2B" StrokeThickness="4" Stroke="#FF000000"/>
+                        <Ellipse x:Name="RobotGlintL" Canvas.Left="146" Canvas.Top="197" Width="12" Height="12" Fill="#FFFFFFFF"/>
+                        <Ellipse x:Name="RobotGlintR" Canvas.Left="236" Canvas.Top="197" Width="12" Height="12" Fill="#FFFFFFFF"/>
                         <Canvas x:Name="RobotSleepEye" Visibility="Hidden">
                             <Path Stroke="#FF2B2B2B" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  Data="M 142,100 L 178,100 M 232,100 L 268,100"/>
+                                  Data="M 142,213 L 178,213 M 232,213 L 268,213"/>
                         </Canvas>
                     </Canvas>
                     <!-- kolébání převleků spolu s trupem (CostumeTilt animují storyboardy postav s Tilt, střed jako PenguinTilt) -->
@@ -1478,6 +1482,38 @@ function Start-Sound {
         $state.Players[$state.Character] = $player
     }
     $player.Play()
+}
+
+function Get-SpecialFolder {
+    # Složka Windows podle jména: Desktop = plocha, Programs = nabídka Start (Všechny aplikace).
+    param([string]$Name)
+    return [Environment]::GetFolderPath($Name)
+}
+
+function New-Shortcut {
+    # Zástupce .lnk přes COM objekt WScript.Shell (bez kompilace C#), spouští Windows PowerShell 5.1.
+    param([string]$Path, [string]$Arguments, [string]$Icon, [string]$WorkingDirectory)
+    $shell = New-Object -ComObject WScript.Shell
+    try {
+        $link = $shell.CreateShortcut($Path)
+        $link.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $link.Arguments = $Arguments
+        $link.WorkingDirectory = $WorkingDirectory
+        $link.WindowStyle = 7   # minimalizovaně (konzoli pak skryje -WindowStyle Hidden)
+        $link.Description = 'Kachna, která se prochází po obrazovce'
+        if ($Icon -and (Test-Path -LiteralPath $Icon)) { $link.IconLocation = "$Icon,0" }
+        $link.Save()
+    } finally {
+        [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell)
+    }
+}
+
+function Save-DuckIcon {
+    # Ikona kachny pro zástupce (stejná jako v oznamovací oblasti).
+    param([string]$Path)
+    $icon = New-DuckIcon
+    $stream = [System.IO.File]::Create($Path)
+    try { $icon.Save($stream) } finally { $stream.Dispose() }
 }
 
 function Register-SystemEvent {
@@ -2029,9 +2065,10 @@ function Update-CharacterCalendar {
 }
 
 function Initialize-Character {
-    # Po startu: postava podle kalendáře, nastavení ($config.Character), nebo náhodná.
+    # Po startu: postava podle kalendáře, zapamatovaná (Import-Setting), z nastavení ($config.Character), nebo náhodná.
     $state.CalendarCharacter = Get-ForcedCharacter -Date (Get-Now) -Calendar $config.CharacterCalendar
-    Set-Character (Get-StartCharacter -Names @($characters.Keys) -Preferred $config.Character -Forced $state.CalendarCharacter -Roll (Get-Random -Maximum 1000))
+    $preferred = if ($state.PreferredCharacter) { $state.PreferredCharacter } else { $config.Character }
+    Set-Character (Get-StartCharacter -Names @($characters.Keys) -Preferred $preferred -Forced $state.CalendarCharacter -Roll (Get-Random -Maximum 1000))
 }
 
 # ---------------------------------------------------------------------------
@@ -2444,6 +2481,137 @@ function Set-Topmost {
     if ($null -ne $state.CrumbWindow) { $state.CrumbWindow.Topmost = $Enabled }
 }
 
+# ---------------------------------------------------------------------------
+# Zapamatované nastavení a zástupci (složka %USERPROFILE%\Kachna)
+# ---------------------------------------------------------------------------
+function Get-SettingsPath { Join-Path $config.SettingsDir $config.SettingsFile }
+
+function Export-Setting {
+    # Volby z menu, které si kachna pamatuje (poloha, pauza ani "Pojď za myší" ne).
+    return [ordered]@{
+        Character = $state.Character; Rotation = $state.RotationName; RotateInOrder = $state.RotateInOrder
+        Speed = $state.SpeedName; PhraseSpeed = $state.PhraseSpeedName; Eco = $state.EcoName
+        Drink = $state.Reminders.Drink; Stretch = $state.Reminders.Stretch; Pomodoro = $state.Pomodoro
+        RandomBehavior = $state.RandomBehavior; CrossMonitors = $state.CrossMonitors; Costumes = $state.Costumes
+        Phrases = $state.Phrases; Quiet = $state.Quiet; Sound = $state.Sound; Topmost = $state.Topmost
+    }
+}
+
+function Save-Setting {
+    # Uloží volby z menu, je-li zapnuté "Pamatovat si nastavení" (volá se po každé volbě v menu).
+    # Chyba zápisu (síťový profil, plný disk) kachnu nezastaví.
+    if (-not $state.Remember) { return }
+    try {
+        if (-not (Test-Path -LiteralPath $config.SettingsDir)) { [void](New-Item -ItemType Directory -Path $config.SettingsDir -Force) }
+        $json = (Export-Setting) | ConvertTo-Json
+        [System.IO.File]::WriteAllText((Get-SettingsPath), $json, (New-Object System.Text.UTF8Encoding $false))
+    } catch {
+        Write-Verbose "Kachna: nastavení nejde uložit: $_"
+    }
+}
+
+function Import-Setting {
+    # Po startu (před výběrem postavy): zapamatované volby do stavu. Soubor existuje = pamatování je zapnuté.
+    # Poškozený soubor nebo neznámé hodnoty se přeskočí (platí výchozí nastavení).
+    $path = Get-SettingsPath
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $state.Remember = $true
+    try { $data = [System.IO.File]::ReadAllText($path) | ConvertFrom-Json } catch { return }
+    if ($null -eq $data) { return }
+    if ($characters.Contains([string]$data.Character)) { $state.PreferredCharacter = [string]$data.Character }
+    if ($config.CharacterRotations.Contains([string]$data.Rotation)) { $state.RotationName = [string]$data.Rotation }
+    if ($config.Speeds.Contains([string]$data.Speed)) { $state.SpeedName = [string]$data.Speed }
+    if ($config.PhraseSpeeds.Contains([string]$data.PhraseSpeed)) { $state.PhraseSpeedName = [string]$data.PhraseSpeed }
+    if ($config.EcoModes.Contains([string]$data.Eco)) {
+        $state.EcoName = [string]$data.Eco
+        $state.EcoMode = $config.EcoModes[$state.EcoName]
+    }
+    foreach ($key in 'Drink', 'Stretch') { if ($data.$key -is [bool]) { $state.Reminders[$key] = $data.$key } }
+    foreach ($key in 'RotateInOrder', 'Pomodoro', 'RandomBehavior', 'CrossMonitors', 'Costumes', 'Phrases', 'Quiet', 'Sound', 'Topmost') {
+        if ($data.$key -is [bool]) { $state[$key] = $data.$key }
+    }
+}
+
+function Set-RememberSetting {
+    # Pamatovat si nastavení: zapnutí hned uloží, vypnutí soubor smaže (další start bude s výchozím nastavením).
+    param([bool]$Enabled)
+    $state.Remember = $Enabled
+    if ($Enabled) {
+        Save-Setting
+        return
+    }
+    $path = Get-SettingsPath
+    try {
+        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -ErrorAction Stop }
+    } catch {
+        Write-Verbose "Kachna: nastavení nejde smazat: $_"
+    }
+}
+
+function Reset-Setting {
+    # Obnovit výchozí nastavení: volby z menu jako po prvním startu ($config). Zvuk se při tom neozve,
+    # Pomodoro začne znovu jen tehdy, když se zapíná.
+    Set-Speed $config.DefaultSpeed
+    Set-PhraseSpeed $config.DefaultPhraseSpeed
+    Set-EcoMode $config.DefaultEco
+    foreach ($key in @($config.Reminders.Keys)) {
+        if ([bool]$state.Reminders[$key] -ne [bool]$config.RemindersOn[$key]) { Set-Reminder $key $config.RemindersOn[$key] }
+    }
+    if ([bool]$state.Pomodoro -ne [bool]$config.RemindersOn.Pomodoro) { Set-Reminder 'Pomodoro' $config.RemindersOn.Pomodoro }
+    if ($state.RandomBehavior -ne $config.RandomBehavior) { Set-RandomBehavior $config.RandomBehavior }
+    Set-MonitorCrossing $config.CrossMonitors
+    Set-CostumeEnabled $config.Costumes
+    Set-PhrasesEnabled $config.Phrases
+    Set-Quiet $false
+    $state.Sound = $config.Sound
+    Set-Topmost $config.Topmost
+    $state.RotateInOrder = $config.RotateInOrder
+    Set-CharacterRotation $config.DefaultRotation
+    $state.PreferredCharacter = ''
+    if ($characters.Contains($config.Character)) { Set-Character $config.Character }
+    Show-Speech 'Nastavení je zase výchozí.'
+}
+
+function Get-ShortcutArgument {
+    # Parametry powershell.exe pro zástupce: skrytá konzole, STA (WPF), bez ExecutionPolicy a profilu.
+    param([string]$Script)
+    return "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$Script`""
+}
+
+function Add-Shortcut {
+    # Zástupce Kachna ve složce, pokud tam ještě není (s ikonou kachny). Vrací $true, když ho vytvořil.
+    param([string]$Folder)
+    $path = Join-Path $Folder ($config.ShortcutName + '.lnk')
+    if (Test-Path -LiteralPath $path) { return $false }
+    foreach ($dir in @($config.SettingsDir, $Folder)) {
+        if (-not (Test-Path -LiteralPath $dir)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+    }
+    $icon = Join-Path $config.SettingsDir 'kachna.ico'
+    if (-not (Test-Path -LiteralPath $icon)) {
+        try { Save-DuckIcon $icon } catch { Write-Verbose "Kachna: ikonu nejde uložit: $_" }
+    }
+    New-Shortcut -Path $path -Arguments (Get-ShortcutArgument $config.ShortcutScript) -Icon $icon -WorkingDirectory $config.SettingsDir
+    return $true
+}
+
+function Initialize-Shortcut {
+    # Po startu: zástupce ve složce Kachna a v nabídce Start (kde chybí; připnout na Start ho musí uživatel).
+    foreach ($folder in @($config.SettingsDir, (Get-SpecialFolder 'Programs'))) {
+        if (-not $folder) { continue }
+        try { [void](Add-Shortcut $folder) } catch { Write-Verbose "Kachna: zástupce ve složce $folder nejde vytvořit: $_" }
+    }
+}
+
+function New-DesktopShortcut {
+    # Menu: zástupce na ploše, jen když tam ještě není.
+    try {
+        if (Add-Shortcut (Get-SpecialFolder 'Desktop')) { $text = 'Zástupce je na ploše!' } else { $text = 'Zástupce na ploše už je.' }
+    } catch {
+        $text = 'Zástupce na ploše nejde vytvořit.'
+    }
+    Show-Speech $text
+}
+
 function Restart-HeartTimer {
     # Tep kachny: 1x za sekundu, při "Pojď za myší" častěji, spící kachna jen jednou za 2 s zkontroluje myš.
     $heartTimer.Stop()
@@ -2533,6 +2701,10 @@ $menuSpec = @(
             @{ Text = 'Tichý režim (bez bublin)'; Check = { $state.Quiet }; Action = { Set-Quiet (-not $state.Quiet) } }
             @{ Text = { "Zvuk ($((Get-Character).SoundName))" }; Check = { $state.Sound }; Action = { Set-Sound (-not $state.Sound) } }
             @{ Text = 'Vždy navrchu'; Check = { $state.Topmost }; Action = { Set-Topmost (-not $state.Topmost) } }
+            '-'
+            @{ Text = 'Pamatovat si nastavení'; Check = { $state.Remember }; Action = { Set-RememberSetting (-not $state.Remember) } }
+            @{ Text = 'Obnovit výchozí nastavení'; Action = { Reset-Setting } }
+            @{ Text = 'Vytvořit zástupce na ploše'; Action = { New-DesktopShortcut } }
         )
     }
     '-'
@@ -2581,8 +2753,10 @@ function Add-MenuEntry {
 }
 
 function Invoke-MenuEntry {
+    # Provede volbu z menu a uloží nastavení (jen když je zapnuté "Pamatovat si nastavení").
     param($Tag)
     if ($null -ne $Tag.Choice) { & $Tag.Spec.Action $Tag.Choice } else { & $Tag.Spec.Action }
+    Save-Setting
 }
 
 function Update-MenuState {
@@ -2750,6 +2924,8 @@ $state = @{
     Players         = @{}         # přehrávač zvuku každé postavy (Start-Sound)
     SysHandlers     = $null
     ErrorShown      = $false
+    Remember        = $false      # Pamatovat si nastavení (soubor v $config.SettingsDir)
+    PreferredCharacter = ''       # zapamatovaná postava pro start (Import-Setting)
 }
 
 # Nohy a tělo: storyboardy v kódu (ne v XAML), aby šly zastavit (Stop), zrychlit podle chůze a omezit snímky.
@@ -2865,7 +3041,9 @@ $window.Add_SourceInitialized({
 })
 
 $window.Add_Loaded({
+    Import-Setting
     Initialize-Character
+    Set-Topmost $state.Topmost
     $now = $clock.Elapsed.TotalSeconds
     $state.AnimReady = $true
     $state.LastActivity = $now
@@ -2883,6 +3061,7 @@ $window.Add_Loaded({
     Restart-HeartTimer
     Restart-SpeechTimer
     Start-Walk
+    Initialize-Shortcut
 })
 
 # Změna DPI okna (jiné škálování monitoru) – jen ve .NET Framework 4.6.2 a novějším
