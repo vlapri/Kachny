@@ -29,6 +29,7 @@
       - reakce na změnu rozlišení nebo odpojení monitoru (kachna nezmizí mimo obrazovku).
 
 .NOTES
+    Verze: viz $config.Version (zobrazuje se dole v menu).
     Spuštění: dvojklik na powershell_kachna_v2.cmd
         nebo: powershell -NoProfile -ExecutionPolicy Bypass -File .\powershell_kachna_v2.ps1
     Funguje ve Windows PowerShell 5.1 i v PowerShell 7 (jen Windows).
@@ -65,6 +66,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 # Nastavení
 # ---------------------------------------------------------------------------
 $config = @{
+    Version              = '2.7.0'    # verze programu: zvýšit ručně při každé změně (oprava = 3. číslo, novinka = 2. číslo)
     Speeds               = [ordered]@{ 'Pomalá' = 8; 'Normální' = 15; 'Rychlá' = 35 }  # rychlost chůze v DIP za sekundu
     DefaultSpeed         = 'Normální' # odpovídá rychlosti v1 (5 px každých 350 ms = 14,3 px/s)
     LegsBaseSpeed        = 15         # při této rychlosti nohy kmitají jednou za sekundu (jako ve v1)
@@ -2759,14 +2761,20 @@ $menuSpec = @(
     }
     '-'
     @{ Text = 'Ukončit'; Action = { $window.Close() } }
+    '-'
+    @{ Text = "Kachna verze $($config.Version)"; Disabled = $true }   # jen informace, nedá se na ni klepnout
 )
 
 function New-MenuEntry {
     # Jedna položka: WPF MenuItem (menu kachny), nebo WinForms ToolStripMenuItem (menu ikony).
     # Tag nese popis položky (Spec) a u voleb zvolenou možnost (Choice); kliknutí řeší Invoke-MenuEntry.
-    param($Tag, [bool]$Tray, [bool]$Clickable)
+    # Disabled = šedá položka jen pro informaci (verze).
+    param($Tag, [bool]$Tray, [bool]$Clickable, [bool]$Disabled)
     if ($Tray) { $item = New-Object System.Windows.Forms.ToolStripMenuItem } else { $item = New-Object System.Windows.Controls.MenuItem }
     $item.Tag = $Tag
+    if ($Disabled) {
+        if ($Tray) { $item.Enabled = $false } else { $item.IsEnabled = $false }
+    }
     if ($Clickable) { $item.Add_Click({ Invoke-MenuEntry $this.Tag }) }
     return $item
 }
@@ -2788,7 +2796,8 @@ function Add-MenuEntry {
         }
         if ($entry.Tray -and -not $Tray) { continue }
         $isSubmenu = $null -ne $entry.Choices -or $null -ne $entry.Items
-        $item = New-MenuEntry -Tag @{ Spec = $entry; Choice = $null } -Tray $Tray -Clickable (-not $isSubmenu)
+        $disabled = [bool]$entry.Disabled
+        $item = New-MenuEntry -Tag @{ Spec = $entry; Choice = $null } -Tray $Tray -Clickable (-not ($isSubmenu -or $disabled)) -Disabled $disabled
         if ($entry.Gesture -and -not $Tray) { $item.InputGestureText = $entry.Gesture }
         # přiřadit přímo (ne $x = if ...): přes if by se prázdná kolekce rozbalila na $null
         if ($Tray) { $children = $item.DropDownItems } else { $children = $item.Items }

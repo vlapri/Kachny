@@ -17,6 +17,14 @@ Komunikace s uživatelem, texty v UI i komentáře v kódu jsou **česky**. Kach
 | `*.gif`, `coffee_qr.png`, `postavy.png` | Obrázky pro README. |
 | `%USERPROFILE%\Kachna\` (u uživatele) | `nastaveni.json` (Pamatovat si nastavení), `kachna.ico`, zástupce `Kachna.lnk`. Zástupce se při startu vytvoří i v nabídce Start (pokud chybí), na ploše z menu. Spouští `ShortcutScript` = `\\192.168.10.250\verejna$\Scripts\kachna2.ps1`. |
 
+## Verze
+
+- Verze programu je v `$config.Version` v `powershell_kachna_v2.ps1` (formát `číslo.číslo.číslo`, test hlídá).
+  Zobrazuje se jako poslední, neaktivní položka obou menu („Kachna verze X.Y.Z“, `Disabled = $true` v `$menuSpec`).
+- **Při každé změně programu verzi ručně zvyš** (ve stejném commitu): oprava nebo drobná úprava = třetí číslo
+  (2.7.0 → 2.7.1), nová funkce = druhé číslo a třetí na nulu (2.7.1 → 2.8.0), první číslo jen u zásadní přestavby.
+  Změny jen v testech, README nebo CLAUDE.md verzi nemění.
+
 ## Konvence souborů (hlídají je testy)
 
 - `.ps1`: **UTF-8 s BOM** (jinak Windows PowerShell 5.1 rozbije diakritiku) a konce řádků **CRLF**, bez tabulátorů.
@@ -133,7 +141,8 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   rychleji, rychlost chůze zůstává. Postava zůstane stát nohama na místě. Test hlídá pro každou velikost okraje, bublinu
   u hlavy, převleky i to, že se hlášky vejdou (100 % = XAML).
 - **Menu:** obě menu (WPF `ContextMenu` na kachně, WinForms `ContextMenuStrip` u ikony) se staví z jednoho seznamu `$menuSpec`
-  (`Text` nebo scriptblock, `Action`, `Check`, `Choices`, `Items`, `Tray` = jen u ikony, `Gesture`). `Add-MenuEntry` je postaví,
+  (`Text` nebo scriptblock, `Action`, `Check`, `Choices`, `Items`, `Tray` = jen u ikony, `Gesture`, `Disabled` = šedá
+  položka bez akce, např. verze). `Add-MenuEntry` je postaví,
   `Update-MenuState` při otevření nastaví popisky a zaškrtnutí, `Invoke-MenuEntry` provede akci. Podmenu nemají vlastní akci
   (klik na volbu ve WPF probublá k rodiči). Skrytou kachnu jde zobrazit jen z menu ikony (nebo přivoláním).
 
