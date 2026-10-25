@@ -95,14 +95,17 @@ Pořadí sekcí: kontrola prostředí → `$config` → hlášky (+ `$characterP
   Probudí ji pohyb myši, klepnutí, přivolání nebo připomínka.
 - **Zrcadlení:** obsah okna je nakreslený pro chůzi doprava; `RootFlip.ScaleX = Direction` zrcadlí kachnu i bublinu,
   `TextFlip` vrací text zpět, aby byl čitelný.
-- **Postavy** (`$characters`: Kachna, Slepice, Skřítek): kresby jsou v XAML vedle sebe (`CharDuck`, `CharChicken`, `CharMinion`),
-  vidět je jen jedna. Popis postavy říká, které prvky jsou nohy (`Legs` + `LegShift`), tělo (`Body` + `Glow`), oči (`Eyes`,
+- **Postavy** (`$characters`: Kachna, Slepice, Skřítek, Tučňák): kresby jsou v XAML vedle sebe (`CharDuck`, `CharChicken`,
+  `CharMinion`, `CharPenguin`),
+  vidět je jen jedna. Popis postavy říká, které prvky jsou nohy (`Legs` + `LegShift`), tělo (`Body` + `Glow`), kolébání
+  (`Tilt` = Canvas s `RotateTransform`, `TiltAngle`; převleky jsou v `CostumeTilt` se stejným středem otáčení a kolébají se
+  s trupem – obojí animuje storyboard nohou, takže se kolébá jen při pohybu), oči (`Eyes`,
   `SleepEye`), co schovat pod klobouk (`Hats`), které převleky jí sluší a o kolik je posunout (`Costumes`, `CostumeShift` →
   `TranslateTransform` `CostumeShift`), `BeakOffset` pro krmení, hlas (`Voice` = tóny pro `New-QuackWave`, `WaveFile`) a slova
   do menu (`Accusative`, `Adjective`, `SoundName`). Každá postava má svoje storyboardy (`$characterAnimations`), aktuální jsou
   v `$state.Legs`/`$state.Glow`. `Set-Character` přepne kresbu, storyboardy, oči, převlek, ikonu a pozdraví (`Hello`); poloha
   a stav zůstávají. Hlášky bere `Get-PhraseList` (vlastní seznam postavy, jinak kachní; připomínky a situace po klíčích).
-  Slepice mluví v ženském rodě, skřítek v mužském (test hlídá). Start: `Initialize-Character` (kalendář
+  Slepice mluví v ženském rodě, skřítek a tučňák v mužském (test hlídá). Start: `Initialize-Character` (kalendář
   `CharacterCalendar` → `Character` → náhodně), střídání `Invoke-CharacterRotation` v tepu (ne během období z kalendáře),
   kalendář `Update-CharacterCalendar` 1× za minutu přepne jen na začátku období (ruční volba pak platí).
   Nová postava = kresba `Char…` v XAML, záznam v `$characters`, jména prvků do `FindName` a hlášky v `$characterPhrases`.

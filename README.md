@@ -47,11 +47,11 @@ Ovládání (Controls):
 V menu Nastavení (Settings menu): náhodné chování, chůze přes monitory, sezónní převleky, střídat postavy popořadě, zapnuté kachní hlášky, tichý režim (bez bublin), zvuk (kvák), vždy navrchu.
 (Random behaviour, walking across monitors, seasonal costumes, rotate characters in order, duck phrases on, quiet mode (no bubbles), sound (quack), always on top.)
 
-Postavy (Characters): kachna, slepice a žlutý brýlatý skřítek. Každá postava má vlastní hlášky, hlas a převleky.
+Postavy (Characters): kachna, slepice, žlutý brýlatý skřítek a tučňák velitel, který se při chůzi kolébá. Každá postava má vlastní hlášky, hlas a převleky.
 Po startu se postava vybere náhodně, v menu „Postava“ jde změnit a „Střídat postavy“ ji mění každých 15 minut, hodinu
 nebo 3 hodiny (náhodně, nebo popořadě). O Vánocích (1. 12. – 6. 1.) chodí kachna s mikulášskou čepicí. Výchozí postavu
 a kalendář jde změnit na začátku skriptu v `$config` (`Character`, `CharacterCalendar`).
-(Duck, hen and a yellow goggled sprite, each with its own phrases, voice and costumes. A random character is picked at
+(Duck, hen, a yellow goggled sprite and a waddling penguin commander, each with its own phrases, voice and costumes. A random character is picked at
 start; change it in the "Character" menu, or let "Rotate characters" switch it every 15 minutes, hour or 3 hours. At
 Christmas the duck with a Santa hat is forced. Change the default and the calendar in `$config` at the top of the script.)
 
@@ -65,7 +65,7 @@ Novinky ve v2 (What's new in v2):
 - hlášky se neopakují hned po sobě, kachna se občas sama zastaví, otočí nebo změní tempo (no phrase twice in a row, random stops, turns and pace changes),
 - hlášky podle denní doby, svátků, stavu baterie a ušlé vzdálenosti (phrases depending on the time of day, holidays, battery and the distance walked),
 - připomínky: pitný režim, protažení, Pomodoro – po startu zapnuté (reminders: drink water, stretch, Pomodoro – on by default),
-- postavy: kachna, slepice, žlutý brýlatý skřítek – náhodně, z menu, střídání, podle kalendáře (characters: duck, hen, yellow goggled sprite – random, from the menu, rotating, by calendar),
+- postavy: kachna, slepice, žlutý brýlatý skřítek, tučňák velitel – náhodně, z menu, střídání, podle kalendáře (characters: duck, hen, yellow goggled sprite, penguin commander – random, from the menu, rotating, by calendar),
 - krmení rohlíkem, „Pojď za myší“, poskok, sezónní převleky (čepice v prosinci, brýle v létě), volitelný zvuk (feeding, follow the mouse, hop, seasonal costumes, optional sound),
 - šetří počítač: pohyb řídí animace WPF s omezeným počtem snímků, při zamčení PC se schová, po 10 minutách bez pohybu myši usne, na baterii přejde do úsporného režimu (saves resources: movement driven by frame-limited WPF animations, hides when the PC is locked, falls asleep after 10 minutes without mouse movement, power saving on battery),
 - po změně rozlišení nebo odpojení monitoru kachna nezmizí mimo obrazovku (the duck stays visible after a resolution change or when a monitor is disconnected).
